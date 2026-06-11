@@ -19,6 +19,12 @@ function yearLabel(v) {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
+/* y-axis label formatter — without this ApexCharts can pick absurd
+   precisions (e.g. "1.000000000000") for axes with a narrow data range. */
+function fixed(decimals) {
+  return v => Number(v).toFixed(decimals);
+}
+
 /* Shared chart-level config. `chartExtra` merges into the `chart` object
    (e.g. { stacked: true, type: 'bar' }). */
 function baseChart(type, chartExtra = {}) {
@@ -113,7 +119,7 @@ function renderVo2Chart() {
     legend: { show: false },
     tooltip: { shared: false, intersect: false },
     xaxis: yearAxis(),
-    yaxis: { title: { text: 'ml·kg⁻¹·min⁻¹' } },
+    yaxis: { title: { text: 'ml·kg⁻¹·min⁻¹' }, labels: { formatter: fixed(1) } },
   });
 }
 
@@ -129,7 +135,7 @@ function renderVolumeChart() {
     plotOptions: { bar: { borderRadius: 1, borderRadiusApplication: 'end' } },
     legend: { position: 'bottom' },
     xaxis: { categories: y.map(x => String(x.year)) },
-    yaxis: { title: { text: 'km' } },
+    yaxis: { title: { text: 'km' }, labels: { formatter: fixed(0) } },
   });
 }
 
@@ -164,7 +170,7 @@ function renderEfChart() {
     fill: { type: 'solid', opacity: fills },
     legend: { show: false },
     xaxis: yearAxis(),
-    yaxis: { title: { text: 'm·min⁻¹ / bpm' } },
+    yaxis: { title: { text: 'm·min⁻¹ / bpm' }, labels: { formatter: fixed(2) } },
   });
 }
 
@@ -184,7 +190,7 @@ function renderGaitChart() {
     colors.push('#B8753D');
     widths.push(2);
     dashes.push(0);
-    yaxis.push({ seriesName: 'Stride length (m)', title: { text: 'stride (m)' } });
+    yaxis.push({ seriesName: 'Stride length (m)', title: { text: 'stride (m)' }, labels: { formatter: fixed(2) } });
   }
   if (g.some(m => m.cad != null)) {
     series.push({
@@ -194,7 +200,7 @@ function renderGaitChart() {
     colors.push('#1F3A5F');
     widths.push(1.5);
     dashes.push(4);
-    yaxis.push({ seriesName: 'Cadence (spm)', opposite: true, title: { text: 'cadence (spm)' } });
+    yaxis.push({ seriesName: 'Cadence (spm)', opposite: true, title: { text: 'cadence (spm)' }, labels: { formatter: fixed(0) } });
   }
 
   mountChart('chart-gait', {
@@ -222,7 +228,7 @@ function renderBioAgeChart() {
     markers: { size: 0 },
     legend: { position: 'bottom' },
     xaxis: yearAxis(),
-    yaxis: { title: { text: 'years' } },
+    yaxis: { title: { text: 'years' }, labels: { formatter: fixed(1) } },
   });
 }
 
@@ -267,8 +273,8 @@ function renderPerfChart() {
     stroke: { width: 2, curve: 'smooth' },
     markers: { size: 3 },
     legend: { position: 'bottom' },
-    xaxis: { type: 'numeric', title: { text: 'year' }, labels: { formatter: v => (+v).toFixed(0) } },
-    yaxis: { title: { text: 'minutes' } },
+    xaxis: { type: 'numeric', title: { text: 'year' }, labels: { formatter: fixed(0) } },
+    yaxis: { title: { text: 'minutes' }, labels: { formatter: fixed(1) } },
   });
 }
 
@@ -282,8 +288,11 @@ function renderZoneChart() {
     colors: ['#5C7A5A','#84A082','#B8753D','#A03A30','#8B2635'],
     plotOptions: { bar: { horizontal: true, distributed: true, borderRadius: 1 } },
     legend: { show: false },
-    xaxis: { categories: ['Z1 Easy', 'Z2 Steady', 'Z3 Tempo', 'Z4 Threshold', 'Z5 VO₂max'] },
-    yaxis: { title: { text: '% of HR-tracked running time' }, labels: { formatter: v => `${v.toFixed(0)}%` } },
-    tooltip: { y: { formatter: v => `${v.toFixed(1)}%` } },
+    xaxis: {
+      categories: ['Z1 Easy', 'Z2 Steady', 'Z3 Tempo', 'Z4 Threshold', 'Z5 VO₂max'],
+      title: { text: '% of HR-tracked running time' },
+      labels: { formatter: v => `${fixed(0)(v)}%` },
+    },
+    tooltip: { y: { formatter: v => `${fixed(1)(v)}%` } },
   });
 }
