@@ -54,6 +54,7 @@ function normalizeZipActivity(a) {
     avg_hr: a.avgHr || null,
     max_hr: a.maxHr || null,
     avg_cad: a.avgRunCadence ? a.avgRunCadence * 2 : null,
+    avg_stride_m: a.avgStrideLength ? a.avgStrideLength / 100 : null,
     vo2max: a.vO2MaxValue || null,
     aerobic_te: a.aerobicTrainingEffect || null,
     calories: a.calories || null,

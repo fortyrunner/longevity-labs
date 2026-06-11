@@ -74,7 +74,7 @@ def build(output_path: pathlib.Path) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Bundle Longevity Lab into a single HTML file.")
-    parser.add_argument("--out", default="longevity-lab.html", help="Output file path (default: longevity-lab.html)")
+    parser.add_argument("--out", default="target/longevity-lab.html", help="Output file path (default: longevity-lab.html)")
     args = parser.parse_args()
 
     output = pathlib.Path(args.out)

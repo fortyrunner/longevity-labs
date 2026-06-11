@@ -32,8 +32,6 @@ function humanSize(b) {
   return b + ' B';
 }
 
-function escapeHTML(s) {
-  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
-}
+function escapeHTML(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
 
 function yieldFrame() { return new Promise(r => setTimeout(r, 0)); }

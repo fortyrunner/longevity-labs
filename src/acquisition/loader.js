@@ -11,9 +11,6 @@ async function handleFile(file) {
   try {
     const name = file.name.toLowerCase();
     if (name.endsWith('.zip')) {
-      if (typeof DecompressionStream === 'undefined') {
-        throw new Error('This browser is missing DecompressionStream support, which is required to read .zip files. iOS Safari needs version 16.4 or later (iOS 16.4, released March 2023). Either update iOS, switch to a desktop browser, or use the .csv export instead.');
-      }
       await loadZip(file);
     } else if (name.endsWith('.csv')) {
       await loadCsv(file);
@@ -36,6 +33,7 @@ async function loadZip(file) {
   const buf = await file.arrayBuffer();
   const zip = await readZip(buf);
 
+  // Identify the files we care about
   const profileEntry = zip.entries.find(e => /DI-Connect-User\/user_profile\.json$/.test(e.name));
   const bioProfileEntry = zip.entries.find(e => /userBioMetricProfileData\.json$/.test(e.name));
   const fitnessAgeEntry = zip.entries.find(e => /fitnessAgeData\.json$/.test(e.name));
@@ -44,11 +42,13 @@ async function loadZip(file) {
 
   if (!summarizedEntries.length) throw new Error('No summarizedActivities files found inside the zip. Is this a full Garmin "Export Your Data" archive?');
 
+  // Profile
   setStatus('Reading athlete profile…', '');
   const profile = profileEntry ? await readJsonEntry(zip, profileEntry) : null;
   const bioProfile = bioProfileEntry ? await readJsonEntry(zip, bioProfileEntry) : null;
   state.athlete = buildAthleteFromZip(profile, bioProfile);
 
+  // Activities
   setStatus('Reading activity history…', `${summarizedEntries.length} archive(s)`);
   const acts = [];
   for (let i = 0; i < summarizedEntries.length; i++) {
@@ -70,7 +70,7 @@ async function loadZip(file) {
   // so per-activity values are essential for continuous coverage.
   setStatus('Building VO₂max trajectory…', `${vo2Entries.length} record file(s)`);
   const vo2ByDay = new Map(); // key 'YYYY-MM-DD' → { date, value, sport, source }
-  const dayKey = (d) => d.toISOString().slice(0, 10);
+  const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   // Pass 1: dedicated files (highest priority, keep first value per day)
   for (const e of vo2Entries) {
     try {
@@ -109,6 +109,7 @@ async function loadZip(file) {
   const vo2 = Array.from(vo2ByDay.values()).sort((x, y) => x.date - y.date);
   state.vo2Series = vo2;
 
+  // Fitness age series
   if (fitnessAgeEntry) {
     setStatus('Reading biological-age series…', '');
     try {
@@ -143,7 +144,7 @@ async function loadCsv(file) {
   const acts = parsed.data.map(normalizeCsvActivity).filter(Boolean);
   acts.sort((x, y) => x.date - y.date);
   state.activities = acts;
-  state.vo2Series = [];
+  state.vo2Series = [];   // CSV doesn't carry VO2max in standard export
   state.fitnessAgeSeries = [];
   state.athlete = null;   // Will prompt user for DOB+sex on the dashboard
   state.source = 'csv';

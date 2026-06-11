@@ -1,180 +1,229 @@
 /* ============================================================================
    UI — CHART RENDERING
-   All Chart.js visualisations. Reads from state and the analytics object.
-   Swap this file to change the charting library without touching anything else.
+   All ApexCharts visualisations. Reads from state and the analytics object.
+   ApexCharts is loaded via CDN in html-shell.html and mounts into the
+   <div id="chart-*"> placeholders rendered by templates.js.
    ============================================================================ */
 
-function isMobile() { return window.matchMedia && window.matchMedia('(max-width: 640px)').matches; }
+/* Convert a Date to a decimal year (e.g. 2024-07-01 ≈ 2024.50).
+   Lets us use a plain numeric x-axis everywhere instead of a date/time axis. */
+function dateToYear(d) {
+  const y = d.getFullYear();
+  const startOfYear = new Date(y, 0, 1).getTime();
+  const startOfNext = new Date(y + 1, 0, 1).getTime();
+  return y + (d.getTime() - startOfYear) / (startOfNext - startOfYear);
+}
+
+function yearLabel(v) {
+  const n = typeof v === 'number' ? v : parseFloat(v);
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
+/* Shared chart-level config. `chartExtra` merges into the `chart` object
+   (e.g. { stacked: true, type: 'bar' }). */
+function baseChart(type, chartExtra = {}) {
+  return {
+    chart: {
+      type,
+      height: 280,
+      fontFamily: "'DM Sans', system-ui, sans-serif",
+      foreColor: '#44403C',
+      toolbar: { show: false },
+      animations: { enabled: false },
+      parentHeightOffset: 0,
+      ...chartExtra,
+    },
+    grid: { borderColor: '#E7E2D5' },
+    dataLabels: { enabled: false },
+  };
+}
+
+/* Shared x-axis config for charts plotted against decimal years */
+function yearAxis(extra = {}) {
+  return {
+    type: 'numeric',
+    tickAmount: 8,
+    labels: { formatter: yearLabel },
+    ...extra,
+  };
+}
+
+function mountChart(id, options) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const chart = new ApexCharts(el, options);
+  chart.render();
+  state.charts.push(chart);
+}
 
 function renderCharts() {
   if (state.source === 'csv' && !state.athlete) return;
-  Chart.defaults.font.family = "'DM Sans', system-ui, sans-serif";
-  Chart.defaults.font.size = isMobile() ? 10 : 11;
-  Chart.defaults.color = '#44403C';
-  Chart.defaults.borderColor = '#E7E2D5';
-
   if (state.vo2Series.length) renderVo2Chart();
+  if (analytics.efMonthly.series.length >= 3) renderEfChart();
   renderVolumeChart();
   if (state.fitnessAgeSeries.length) renderBioAgeChart();
   if (analytics.bestPerYear.length) renderPerfChart();
   if (analytics.recentZoneSeconds) renderZoneChart();
+  if (analytics.gaitMonthly.length >= 3) renderGaitChart();
 }
 
 function renderVo2Chart() {
-  const ctx = document.getElementById('chart-vo2');
-  if (!ctx) return;
   const a = state.athlete;
-  const norm = a.ageYears ? vo2NormForAgeSexMale(a.ageYears) : null;
-  const points = state.vo2Series.map(v => ({ x: v.date, y: v.value }));
+  const norm = a.ageYears ? vo2NormForAgeSex(a.ageYears, a.sex) : null;
+  const points = state.vo2Series.map(v => [dateToYear(v.date), v.value]);
   const reg = analytics.vo2Reg;
-  const firstT = state.vo2Series[0].date.getTime();
-  const lastT = state.vo2Series[state.vo2Series.length-1].date.getTime();
+  const yFirst = dateToYear(state.vo2Series[0].date);
+  const yLast  = dateToYear(state.vo2Series[state.vo2Series.length - 1].date);
   const regLine = [
-    { x: new Date(firstT), y: reg.intercept },
-    { x: new Date(lastT), y: reg.intercept + reg.slope * ((lastT - firstT)/(365.25*86400*1000)) }
+    [yFirst, reg.intercept],
+    [yLast,  reg.intercept + reg.slope * (yLast - yFirst)],
   ];
-  const datasets = [
-    {
-      label: 'VO₂max readings',
-      data: points,
-      borderColor: 'rgba(28,25,23,0.18)',
-      backgroundColor: 'rgba(28,25,23,0.55)',
-      pointRadius: 2,
-      pointHoverRadius: 4,
-      showLine: false,
-      type: 'line',
-    },
-    {
-      label: 'Linear trend',
-      data: regLine,
-      borderColor: '#8B2635',
-      backgroundColor: 'transparent',
-      pointRadius: 0,
-      borderWidth: 2,
-      type: 'line',
-      tension: 0,
-    },
-  ];
-  state.charts.push(new Chart(ctx, {
-    type: 'line',
-    data: { datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      aspectRatio: 1.7,
-      plugins: { legend: { display: false }, tooltip: { mode: 'nearest', intersect: false } },
-      scales: {
-        x: { type: 'time', time: { unit: 'year' }, grid: { color: '#E7E2D5' } },
-        y: { title: { display: true, text: 'ml·kg⁻¹·min⁻¹' }, grid: { color: '#E7E2D5' } },
-      },
-    },
-  }));
-  if (norm) drawVo2ReferenceLines(ctx, norm);
-}
 
-function drawVo2ReferenceLines(canvas, norm) {
-  const ch = state.charts[state.charts.length-1];
-  const firstT = state.vo2Series[0].date;
-  const lastT = state.vo2Series[state.vo2Series.length-1].date;
-  const refs = [
-    { y: norm.p95, c: 'rgba(92,122,90,0.4)', label: `Top 5%` },
-    { y: norm.p80, c: 'rgba(92,122,90,0.3)', label: `Top 20%` },
-    { y: norm.p60, c: 'rgba(120,113,108,0.35)', label: `Above avg` },
-    { y: norm.p40, c: 'rgba(184,117,61,0.35)', label: `Average` },
+  const series = [
+    { name: 'VO₂max readings', data: points },
+    { name: 'Linear trend', data: regLine },
   ];
-  refs.forEach(r => {
-    ch.data.datasets.push({
-      label: r.label,
-      data: [{ x: firstT, y: r.y }, { x: lastT, y: r.y }],
-      borderColor: r.c,
-      borderDash: [4, 4],
-      borderWidth: 1,
-      pointRadius: 0,
-      type: 'line',
-      tension: 0,
-    });
+  const colors = ['rgba(28,25,23,0.55)', '#8B2635'];
+  const widths  = [0, 2];
+  const dashes  = [0, 0];
+  const markers = [2, 0];
+
+  if (norm) {
+    const refs = [
+      { y: norm.p95, c: 'rgba(92,122,90,0.4)',    label: 'Top 5%'    },
+      { y: norm.p80, c: 'rgba(92,122,90,0.3)',    label: 'Top 20%'   },
+      { y: norm.p60, c: 'rgba(120,113,108,0.35)', label: 'Above avg' },
+      { y: norm.p40, c: 'rgba(184,117,61,0.35)',  label: 'Average'   },
+    ];
+    for (const r of refs) {
+      series.push({ name: r.label, data: [[yFirst, r.y], [yLast, r.y]] });
+      colors.push(r.c);
+      widths.push(1);
+      dashes.push(4);
+      markers.push(0);
+    }
+  }
+
+  mountChart('chart-vo2', {
+    ...baseChart('line'),
+    series,
+    colors,
+    stroke: { width: widths, dashArray: dashes, curve: 'straight' },
+    markers: { size: markers, hover: { size: 4 } },
+    legend: { show: false },
+    tooltip: { shared: false, intersect: false },
+    xaxis: yearAxis(),
+    yaxis: { title: { text: 'ml·kg⁻¹·min⁻¹' } },
   });
-  ch.update();
 }
-
-function makeBandAnnotation() { return null; }
-function makeLineAnnotation() { return null; }
 
 function renderVolumeChart() {
-  const ctx = document.getElementById('chart-volume');
-  if (!ctx) return;
   const y = analytics.yearly;
-  state.charts.push(new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: y.map(x => x.year),
-      datasets: [
-        {
-          label: 'Running (km)',
-          data: y.map(x => Math.round(x.runKm)),
-          backgroundColor: '#1F3A5F',
-          borderRadius: 1,
-        },
-        {
-          label: 'Other (km)',
-          data: y.map(x => Math.round(Math.max(0, x.km - x.runKm))),
-          backgroundColor: '#A8A29E',
-          borderRadius: 1,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      aspectRatio: 1.7,
-      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: isMobile() ? 8 : 12 } } },
-      scales: {
-        x: { stacked: true, grid: { display: false }, ticks: { autoSkip: false, maxRotation: isMobile() ? 60 : 0, minRotation: isMobile() ? 60 : 0 } },
-        y: { stacked: true, title: { display: !isMobile(), text: 'km' }, grid: { color: '#E7E2D5' } },
-      },
-    },
-  }));
+  mountChart('chart-volume', {
+    ...baseChart('bar', { stacked: true }),
+    series: [
+      { name: 'Running (km)', data: y.map(x => Math.round(x.runKm)) },
+      { name: 'Other (km)', data: y.map(x => Math.round(Math.max(0, x.km - x.runKm))) },
+    ],
+    colors: ['#1F3A5F', '#A8A29E'],
+    plotOptions: { bar: { borderRadius: 1, borderRadiusApplication: 'end' } },
+    legend: { position: 'bottom' },
+    xaxis: { categories: y.map(x => String(x.year)) },
+    yaxis: { title: { text: 'km' } },
+  });
+}
+
+function renderEfChart() {
+  const { series: monthly, reg } = analytics.efMonthly;
+  const series = [
+    { name: 'Monthly EF (easy runs)', type: 'area', data: monthly.map(m => [dateToYear(m.date), m.ef]) },
+  ];
+  const colors  = ['#5C7A5A'];
+  const widths  = [2];
+  const dashes  = [0];
+  const markers = [2.5];
+  const fills   = [0.08];
+
+  if (reg) {
+    const y0 = dateToYear(monthly[0].date);
+    const y1 = dateToYear(monthly[monthly.length - 1].date);
+    series.push({ name: 'Trend', type: 'line', data: [[y0, reg.intercept], [y1, reg.intercept + reg.slope * (y1 - y0)]] });
+    colors.push('#8B2635');
+    widths.push(1.5);
+    dashes.push(5);
+    markers.push(0);
+    fills.push(0);
+  }
+
+  mountChart('chart-ef', {
+    ...baseChart('line'),
+    series,
+    colors,
+    stroke: { width: widths, dashArray: dashes, curve: 'smooth' },
+    markers: { size: markers },
+    fill: { type: 'solid', opacity: fills },
+    legend: { show: false },
+    xaxis: yearAxis(),
+    yaxis: { title: { text: 'm·min⁻¹ / bpm' } },
+  });
+}
+
+function renderGaitChart() {
+  const g = analytics.gaitMonthly;
+  const series = [];
+  const colors = [];
+  const widths = [];
+  const dashes = [];
+  const yaxis = [];
+
+  if (g.some(m => m.stride != null)) {
+    series.push({
+      name: 'Stride length (m)',
+      data: g.filter(m => m.stride != null).map(m => [dateToYear(m.date), m.stride]),
+    });
+    colors.push('#B8753D');
+    widths.push(2);
+    dashes.push(0);
+    yaxis.push({ seriesName: 'Stride length (m)', title: { text: 'stride (m)' } });
+  }
+  if (g.some(m => m.cad != null)) {
+    series.push({
+      name: 'Cadence (spm)',
+      data: g.filter(m => m.cad != null).map(m => [dateToYear(m.date), m.cad]),
+    });
+    colors.push('#1F3A5F');
+    widths.push(1.5);
+    dashes.push(4);
+    yaxis.push({ seriesName: 'Cadence (spm)', opposite: true, title: { text: 'cadence (spm)' } });
+  }
+
+  mountChart('chart-gait', {
+    ...baseChart('line'),
+    series,
+    colors,
+    stroke: { width: widths, dashArray: dashes, curve: 'smooth' },
+    markers: { size: 0 },
+    legend: { position: 'bottom' },
+    xaxis: yearAxis(),
+    yaxis,
+  });
 }
 
 function renderBioAgeChart() {
-  const ctx = document.getElementById('chart-bioage');
-  if (!ctx) return;
   const monthly = downsampleByMonth(state.fitnessAgeSeries);
-  state.charts.push(new Chart(ctx, {
-    type: 'line',
-    data: {
-      datasets: [
-        {
-          label: 'Calendar age',
-          data: monthly.map(m => ({ x: m.date, y: m.chronoAge })),
-          borderColor: '#78716C',
-          pointRadius: 0,
-          borderWidth: 1.5,
-          borderDash: [3, 3],
-        },
-        {
-          label: 'Biological age (Garmin)',
-          data: monthly.map(m => ({ x: m.date, y: m.bioAge })),
-          borderColor: '#8B2635',
-          backgroundColor: 'rgba(139,38,53,0.05)',
-          pointRadius: 0,
-          borderWidth: 2,
-          fill: false,
-          tension: 0.2,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      aspectRatio: 1.7,
-      plugins: { legend: { position: 'bottom' } },
-      scales: {
-        x: { type: 'time', time: { unit: 'month' }, grid: { color: '#E7E2D5' } },
-        y: { title: { display: true, text: 'years' }, grid: { color: '#E7E2D5' } },
-      },
-    },
-  }));
+  mountChart('chart-bioage', {
+    ...baseChart('line'),
+    series: [
+      { name: 'Calendar age', data: monthly.map(m => [dateToYear(m.date), m.chronoAge]) },
+      { name: 'Biological age (Garmin)', data: monthly.map(m => [dateToYear(m.date), m.bioAge]) },
+    ],
+    colors: ['#78716C', '#8B2635'],
+    stroke: { width: [1.5, 2], dashArray: [3, 0], curve: 'smooth' },
+    markers: { size: 0 },
+    legend: { position: 'bottom' },
+    xaxis: yearAxis(),
+    yaxis: { title: { text: 'years' } },
+  });
 }
 
 function downsampleByMonth(series) {
@@ -198,70 +247,43 @@ function downsampleByMonth(series) {
 }
 
 function renderPerfChart() {
-  const ctx = document.getElementById('chart-perf');
-  if (!ctx) return;
   const dists = ['5K', '10K', 'HM', 'M'];
-  const colors = { '5K': '#1F3A5F', '10K': '#5C7A5A', 'HM': '#B8753D', 'M': '#8B2635' };
-  const datasets = dists.map(d => {
+  const colorMap = { '5K': '#1F3A5F', '10K': '#5C7A5A', 'HM': '#B8753D', 'M': '#8B2635' };
+  const series = [];
+  const colors = [];
+  for (const d of dists) {
     const data = analytics.bestPerYear
       .filter(b => b.distance === d)
-      .map(b => ({ x: b.year, y: b.time / 60 }));
-    return {
-      label: d,
-      data,
-      borderColor: colors[d],
-      backgroundColor: colors[d],
-      pointRadius: 3,
-      borderWidth: 2,
-      tension: 0.2,
-      fill: false,
-    };
-  }).filter(ds => ds.data.length);
-  state.charts.push(new Chart(ctx, {
-    type: 'line',
-    data: { datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      aspectRatio: 1.7,
-      plugins: { legend: { position: 'bottom' } },
-      scales: {
-        x: { type: 'linear', title: { display: true, text: 'year' }, ticks: { callback: v => v.toFixed(0) }, grid: { color: '#E7E2D5' } },
-        y: { title: { display: true, text: 'minutes' }, grid: { color: '#E7E2D5' } },
-      },
-    },
-  }));
+      .map(b => [b.year, b.time / 60]); // minutes
+    if (data.length) {
+      series.push({ name: d, data });
+      colors.push(colorMap[d]);
+    }
+  }
+  mountChart('chart-perf', {
+    ...baseChart('line'),
+    series,
+    colors,
+    stroke: { width: 2, curve: 'smooth' },
+    markers: { size: 3 },
+    legend: { position: 'bottom' },
+    xaxis: { type: 'numeric', title: { text: 'year' }, labels: { formatter: v => (+v).toFixed(0) } },
+    yaxis: { title: { text: 'minutes' } },
+  });
 }
 
 function renderZoneChart() {
-  const ctx = document.getElementById('chart-zones');
-  if (!ctx) return;
   const data = analytics.recentZoneSeconds;
   const total = Object.values(data.sec).reduce((s,v)=>s+v,0);
   const pct = k => total > 0 ? (data.sec[k]/total*100) : 0;
-  state.charts.push(new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: ['Z1 Easy', 'Z2 Steady', 'Z3 Tempo', 'Z4 Threshold', 'Z5 VO₂max'],
-      datasets: [
-        {
-          label: '% of running time',
-          data: ['z1','z2','z3','z4','z5'].map(pct),
-          backgroundColor: ['#5C7A5A','#84A082','#B8753D','#A03A30','#8B2635'],
-          borderRadius: 1,
-        }
-      ],
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
-      aspectRatio: 1.7,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { title: { display: true, text: '% of HR-tracked running time' }, ticks: { callback: v => v + '%' }, grid: { color: '#E7E2D5' } },
-        y: { grid: { display: false } },
-      },
-    },
-  }));
+  mountChart('chart-zones', {
+    ...baseChart('bar'),
+    series: [{ name: '% of running time', data: ['z1','z2','z3','z4','z5'].map(pct) }],
+    colors: ['#5C7A5A','#84A082','#B8753D','#A03A30','#8B2635'],
+    plotOptions: { bar: { horizontal: true, distributed: true, borderRadius: 1 } },
+    legend: { show: false },
+    xaxis: { categories: ['Z1 Easy', 'Z2 Steady', 'Z3 Tempo', 'Z4 Threshold', 'Z5 VO₂max'] },
+    yaxis: { title: { text: '% of HR-tracked running time' }, labels: { formatter: v => `${v.toFixed(0)}%` } },
+    tooltip: { y: { formatter: v => `${v.toFixed(1)}%` } },
+  });
 }

@@ -1,512 +1,437 @@
 :root {
-  --paper: #F7F4ED;
-  --paper-2: #EFEBE0;
-  --paper-3: #E5DFCF;
-  --ink: #1C1917;
-  --ink-2: #44403C;
-  --ink-3: #78716C;
-  --ink-4: #A8A29E;
-  --rule: #D6D3D1;
-  --rule-soft: #E7E2D5;
-  --sage: #5C7A5A;
-  --sage-soft: #DFE7DC;
-  --amber: #B8753D;
-  --amber-soft: #F2E2CC;
-  --oxblood: #8B2635;
-  --oxblood-soft: #EFD4D7;
-  --ink-blue: #1F3A5F;
-  --ink-blue-soft: #D6DEE8;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body {
-  background: var(--paper);
-  color: var(--ink);
-  font-family: 'DM Sans', system-ui, sans-serif;
-  font-size: 15px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
-}
-.serif { font-family: 'Fraunces', 'Times New Roman', serif; font-feature-settings: "ss01", "ss03"; }
-.mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
-.smallcaps {
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: var(--ink-3);
-}
-.container { max-width: 1180px; margin: 0 auto; padding: 0 32px; }
-header.app {
-  border-bottom: 1px solid var(--rule);
-  padding: 22px 0 22px;
-  background: var(--paper);
-}
-header.app .row {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 24px;
-}
-header.app .brand {
-  font-family: 'Fraunces', serif;
-  font-weight: 600;
-  font-size: 1.55rem;
-  font-variation-settings: "opsz" 96;
-  letter-spacing: -0.01em;
-}
-header.app .brand .dot { color: var(--oxblood); }
-header.app .tag {
-  font-size: 0.78rem;
-  color: var(--ink-3);
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-}
-
-/* LANDING */
-.landing { padding: 80px 0 120px; }
-.landing h1 {
-  font-family: 'Fraunces', serif;
-  font-weight: 400;
-  font-size: clamp(2.6rem, 5vw, 4.4rem);
-  line-height: 1.02;
-  letter-spacing: -0.025em;
-  font-variation-settings: "opsz" 144;
-  max-width: 900px;
-  margin-bottom: 28px;
-}
-.landing h1 em {
-  font-style: italic;
-  color: var(--oxblood);
-  font-weight: 400;
-}
-.landing .lede {
-  font-size: 1.15rem;
-  line-height: 1.55;
-  color: var(--ink-2);
-  max-width: 640px;
-  margin-bottom: 48px;
-}
-.drop {
-  border: 1.5px dashed var(--ink-3);
-  background: var(--paper-2);
-  padding: 56px 40px;
-  border-radius: 4px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  position: relative;
-}
-.drop:hover, .drop.over {
-  background: var(--paper-3);
-  border-color: var(--ink);
-}
-.drop .icon { font-size: 2.2rem; margin-bottom: 14px; }
-.drop strong {
-  font-family: 'Fraunces', serif;
-  font-weight: 500;
-  font-size: 1.2rem;
-  display: block;
-  margin-bottom: 6px;
-}
-.drop .hint { color: var(--ink-3); font-size: 0.92rem; }
-.drop input { display: none; }
-.accepts {
-  margin-top: 32px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-.accept-card {
-  border: 1px solid var(--rule);
-  padding: 22px 24px;
-  background: var(--paper);
-}
-.accept-card .label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
-  color: var(--ink-3);
-  margin-bottom: 8px;
-  letter-spacing: 0.05em;
-}
-.accept-card h3 {
-  font-family: 'Fraunces', serif;
-  font-weight: 500;
-  font-size: 1.1rem;
-  margin-bottom: 8px;
-}
-.accept-card p {
-  font-size: 0.9rem;
-  color: var(--ink-2);
-  line-height: 1.45;
-}
-.footnote {
-  margin-top: 48px;
-  font-size: 0.8rem;
-  color: var(--ink-3);
-  line-height: 1.5;
-  max-width: 640px;
-}
-
-/* LOADING */
-.loading {
-  padding: 120px 0;
-  text-align: center;
-}
-.loading .spinner {
-  width: 56px; height: 56px;
-  border: 2px solid var(--rule);
-  border-top-color: var(--oxblood);
-  border-radius: 50%;
-  margin: 0 auto 24px;
-  animation: spin 1s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.loading .status {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.85rem;
-  color: var(--ink-2);
-}
-.loading .substatus {
-  margin-top: 12px;
-  font-size: 0.78rem;
-  color: var(--ink-3);
-  font-family: 'JetBrains Mono', monospace;
-}
-
-/* DASHBOARD */
-.dash { padding: 40px 0 80px; }
-.athlete-card {
-  background: var(--paper-2);
-  border: 1px solid var(--rule);
-  padding: 28px 32px;
-  margin-bottom: 40px;
-  display: grid;
-  grid-template-columns: 2fr 3fr;
-  gap: 40px;
-  align-items: center;
-}
-.athlete-card .left .eyebrow {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
-  color: var(--ink-3);
-  letter-spacing: 0.1em;
-  margin-bottom: 8px;
-}
-.athlete-card h2 {
-  font-family: 'Fraunces', serif;
-  font-weight: 400;
-  font-size: 1.9rem;
-  line-height: 1.1;
-  margin-bottom: 12px;
-  letter-spacing: -0.015em;
-}
-.athlete-card h2 em {
-  font-style: italic;
-  color: var(--oxblood);
-}
-.athlete-card .meta {
-  font-size: 0.88rem;
-  color: var(--ink-2);
-  line-height: 1.55;
-}
-.athlete-card .meta b { font-weight: 600; color: var(--ink); }
-.verdict {
-  border-left: 2px solid var(--oxblood);
-  padding-left: 20px;
-  font-family: 'Fraunces', serif;
-  font-size: 1.05rem;
-  line-height: 1.45;
-  color: var(--ink-2);
-  font-style: italic;
-}
-.verdict strong {
-  font-style: normal;
-  color: var(--ink);
-  font-weight: 500;
-}
-
-.kpi-strip {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0;
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-  margin-bottom: 56px;
-}
-.kpi {
-  padding: 22px 28px;
-  border-right: 1px solid var(--rule);
-}
-.kpi:last-child { border-right: none; }
-.kpi .label { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--ink-3); letter-spacing: 0.08em; margin-bottom: 6px; text-transform: uppercase; }
-.kpi .value {
-  font-family: 'Fraunces', serif;
-  font-weight: 400;
-  font-size: 2.4rem;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  font-variation-settings: "opsz" 96;
-}
-.kpi .unit { font-family: 'DM Sans', sans-serif; font-size: 1rem; color: var(--ink-3); margin-left: 4px; font-weight: 400; }
-.kpi .sub { margin-top: 6px; font-size: 0.78rem; color: var(--ink-3); }
-.kpi .sub.good { color: var(--sage); }
-.kpi .sub.warn { color: var(--amber); }
-.kpi .sub.bad { color: var(--oxblood); }
-
-section.panel { margin-bottom: 64px; }
-section.panel header {
-  display: flex; align-items: baseline; justify-content: space-between;
-  margin-bottom: 8px;
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: 12px;
-}
-section.panel h3 {
-  font-family: 'Fraunces', serif;
-  font-weight: 500;
-  font-size: 1.5rem;
-  letter-spacing: -0.01em;
-}
-section.panel .section-no {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.72rem;
-  color: var(--ink-3);
-  letter-spacing: 0.1em;
-}
-section.panel .lede {
-  font-family: 'Fraunces', serif;
-  font-size: 1.05rem;
-  font-style: italic;
-  color: var(--ink-2);
-  margin: 16px 0 24px;
-  max-width: 760px;
-  line-height: 1.5;
-}
-.panel-body { display: grid; grid-template-columns: 5fr 3fr; gap: 32px; align-items: start; }
-.panel-body.full { grid-template-columns: 1fr; }
-.chart-host { background: var(--paper); position: relative; min-height: 280px; }
-.chart-host canvas { max-width: 100%; }
-.notes {
-  background: var(--paper-2);
-  padding: 22px 24px;
-  border-left: 2px solid var(--ink-blue);
-  font-size: 0.92rem;
-  line-height: 1.55;
-  color: var(--ink-2);
-}
-.notes h4 {
-  font-family: 'Fraunces', serif;
-  font-weight: 500;
-  font-size: 1rem;
-  margin-bottom: 10px;
-  color: var(--ink);
-}
-.notes p { margin-bottom: 10px; }
-.notes p:last-child { margin-bottom: 0; }
-.notes .stat {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.82rem;
-  background: var(--paper);
-  padding: 1px 6px;
-  border-radius: 2px;
-  color: var(--ink);
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8rem;
-}
-.data-table th, .data-table td {
-  text-align: right;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--rule-soft);
-}
-.data-table th {
-  text-align: right;
-  color: var(--ink-3);
-  font-weight: 500;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  border-bottom: 1px solid var(--rule);
-}
-.data-table th:first-child, .data-table td:first-child { text-align: left; }
-
-.reco-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
-  background: var(--rule);
-  border: 1px solid var(--rule);
-}
-.reco {
-  background: var(--paper);
-  padding: 24px;
-}
-.reco .num {
-  font-family: 'Fraunces', serif;
-  font-weight: 400;
-  font-style: italic;
-  font-size: 2rem;
-  color: var(--oxblood);
-  line-height: 1;
-  margin-bottom: 10px;
-  font-variation-settings: "opsz" 96;
-}
-.reco h4 {
-  font-family: 'Fraunces', serif;
-  font-weight: 500;
-  font-size: 1.05rem;
-  margin-bottom: 8px;
-}
-.reco p {
-  font-size: 0.88rem;
-  color: var(--ink-2);
-  line-height: 1.5;
-}
-
-.reset-btn {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-  background: none;
-  border: 1px solid var(--ink-3);
-  color: var(--ink-2);
-  padding: 6px 14px;
-  cursor: pointer;
-  letter-spacing: 0.05em;
-}
-.reset-btn:hover { border-color: var(--ink); color: var(--ink); background: var(--paper-2); }
-
-.error {
-  border: 1px solid var(--oxblood);
-  background: var(--oxblood-soft);
-  color: var(--ink);
-  padding: 18px 22px;
-  border-radius: 2px;
-  margin-bottom: 24px;
-  font-size: 0.92rem;
-}
-.error strong { color: var(--oxblood); display: block; margin-bottom: 4px; font-weight: 600; }
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 18px;
-  margin-top: 24px;
-  padding: 20px;
-  background: var(--paper-2);
-  border: 1px solid var(--rule);
-}
-.form-row label {
-  display: block;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
-  color: var(--ink-3);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-.form-row input, .form-row select {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--rule);
-  background: var(--paper);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.95rem;
-  color: var(--ink);
-}
-
-footer.app {
-  border-top: 1px solid var(--rule);
-  padding: 24px 0 32px;
-  margin-top: 60px;
-  font-size: 0.78rem;
-  color: var(--ink-3);
-  line-height: 1.5;
-}
-footer.app .container { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
-
-@media (max-width: 900px) {
-  .container { padding: 0 20px; }
-  .athlete-card { grid-template-columns: 1fr; }
-  .kpi-strip { grid-template-columns: repeat(2, 1fr); }
-  .kpi:nth-child(2) { border-right: none; }
-  .kpi:nth-child(1), .kpi:nth-child(2) { border-bottom: 1px solid var(--rule); }
-  .panel-body { grid-template-columns: 1fr; }
-  .reco-grid { grid-template-columns: 1fr; }
-  .accepts { grid-template-columns: 1fr; }
-  .form-row { grid-template-columns: 1fr; }
-}
-
-/* Phone-specific tuning — sized for iPhone Safari (375–430 px viewports). */
-@media (max-width: 640px) {
-  body { font-size: 14px; }
-  .container {
-    padding-left: max(16px, env(safe-area-inset-left));
-    padding-right: max(16px, env(safe-area-inset-right));
+    --paper: #F7F4ED;
+    --paper-2: #EFEBE0;
+    --paper-3: #E5DFCF;
+    --ink: #1C1917;
+    --ink-2: #44403C;
+    --ink-3: #78716C;
+    --ink-4: #A8A29E;
+    --rule: #D6D3D1;
+    --rule-soft: #E7E2D5;
+    --sage: #5C7A5A;
+    --sage-soft: #DFE7DC;
+    --amber: #B8753D;
+    --amber-soft: #F2E2CC;
+    --oxblood: #8B2635;
+    --oxblood-soft: #EFD4D7;
+    --ink-blue: #1F3A5F;
+    --ink-blue-soft: #D6DEE8;
   }
-  header.app { padding: 14px 0; }
-  header.app .row { flex-wrap: wrap; gap: 6px 16px; }
-  header.app .brand { font-size: 1.2rem; }
-  header.app .tag { font-size: 0.62rem; letter-spacing: 0.14em; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .serif { font-family: 'Fraunces', 'Times New Roman', serif; font-feature-settings: "ss01", "ss03"; }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .smallcaps {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--ink-3);
+  }
+  .container { max-width: 1180px; margin: 0 auto; padding: 0 32px; }
+  header.app {
+    border-bottom: 1px solid var(--rule);
+    padding: 22px 0 22px;
+    background: var(--paper);
+  }
+  header.app .row {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 24px;
+  }
+  header.app .brand {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 1.55rem;
+    font-variation-settings: "opsz" 96;
+    letter-spacing: -0.01em;
+  }
+  header.app .brand .dot { color: var(--oxblood); }
+  header.app .tag {
+    font-size: 0.78rem;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+  }
 
-  .landing { padding: 32px 0 56px; }
-  .landing h1 { font-size: 1.95rem; line-height: 1.08; margin-bottom: 20px; letter-spacing: -0.02em; }
-  .landing .lede { font-size: 0.98rem; margin-bottom: 28px; }
-  .drop { padding: 36px 20px; }
-  .drop .icon { font-size: 1.7rem; margin-bottom: 10px; }
-  .drop strong { font-size: 1.02rem; }
-  .drop .hint { font-size: 0.84rem; }
-  .accept-card { padding: 18px 20px; }
-  .accept-card h3 { font-size: 1rem; }
-  .accept-card p { font-size: 0.84rem; }
-  .footnote { font-size: 0.76rem; margin-top: 32px; }
+  /* LANDING */
+  .landing { padding: 80px 0 120px; }
+  .landing h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: clamp(2.6rem, 5vw, 4.4rem);
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    font-variation-settings: "opsz" 144;
+    max-width: 900px;
+    margin-bottom: 28px;
+  }
+  .landing h1 em {
+    font-style: italic;
+    color: var(--oxblood);
+    font-weight: 400;
+  }
+  .landing .lede {
+    font-size: 1.15rem;
+    line-height: 1.55;
+    color: var(--ink-2);
+    max-width: 640px;
+    margin-bottom: 48px;
+  }
+  .drop {
+    border: 1.5px dashed var(--ink-3);
+    background: var(--paper-2);
+    padding: 56px 40px;
+    border-radius: 4px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+  }
+  .drop:hover, .drop.over {
+    background: var(--paper-3);
+    border-color: var(--ink);
+  }
+  .drop .icon { font-size: 2.2rem; margin-bottom: 14px; }
+  .drop strong {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1.2rem;
+    display: block;
+    margin-bottom: 6px;
+  }
+  .drop .hint { color: var(--ink-3); font-size: 0.92rem; }
+  .drop input { display: none; }
+  .accepts {
+    margin-top: 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .accept-card {
+    border: 1px solid var(--rule);
+    padding: 22px 24px;
+    background: var(--paper);
+  }
+  .accept-card .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--ink-3);
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+  }
+  .accept-card h3 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+  }
+  .accept-card p {
+    font-size: 0.9rem;
+    color: var(--ink-2);
+    line-height: 1.45;
+  }
+  .footnote {
+    margin-top: 48px;
+    font-size: 0.8rem;
+    color: var(--ink-3);
+    line-height: 1.5;
+    max-width: 640px;
+  }
 
-  .athlete-card { padding: 20px 22px; margin-bottom: 28px; gap: 16px; }
-  .athlete-card h2 { font-size: 1.45rem; margin-bottom: 8px; }
-  .athlete-card .meta { font-size: 0.85rem; line-height: 1.5; }
-  .verdict { font-size: 0.95rem; padding-left: 16px; line-height: 1.4; }
+  /* LOADING */
+  .loading {
+    padding: 120px 0;
+    text-align: center;
+  }
+  .loading .spinner {
+    width: 56px; height: 56px;
+    border: 2px solid var(--rule);
+    border-top-color: var(--oxblood);
+    border-radius: 50%;
+    margin: 0 auto 24px;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading .status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--ink-2);
+  }
+  .loading .substatus {
+    margin-top: 12px;
+    font-size: 0.78rem;
+    color: var(--ink-3);
+    font-family: 'JetBrains Mono', monospace;
+  }
 
-  .kpi { padding: 14px 16px; }
-  .kpi .label { font-size: 0.6rem; margin-bottom: 4px; }
-  .kpi .value { font-size: 1.55rem; letter-spacing: -0.015em; }
-  .kpi .value .unit { font-size: 0.72rem; margin-left: 3px; }
-  .kpi .sub { font-size: 0.7rem; margin-top: 4px; }
-  .kpi-strip { margin-bottom: 36px; }
+  /* DASHBOARD */
+  .dash { padding: 40px 0 80px; }
+  .athlete-card {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    padding: 28px 32px;
+    margin-bottom: 40px;
+    display: grid;
+    grid-template-columns: 2fr 3fr;
+    gap: 40px;
+    align-items: center;
+  }
+  .athlete-card .left .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--ink-3);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .athlete-card h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 1.9rem;
+    line-height: 1.1;
+    margin-bottom: 12px;
+    letter-spacing: -0.015em;
+  }
+  .athlete-card h2 em {
+    font-style: italic;
+    color: var(--oxblood);
+  }
+  .athlete-card .meta {
+    font-size: 0.88rem;
+    color: var(--ink-2);
+    line-height: 1.55;
+  }
+  .athlete-card .meta b { font-weight: 600; color: var(--ink); }
+  .verdict {
+    border-left: 2px solid var(--oxblood);
+    padding-left: 20px;
+    font-family: 'Fraunces', serif;
+    font-size: 1.05rem;
+    line-height: 1.45;
+    color: var(--ink-2);
+    font-style: italic;
+  }
+  .verdict strong {
+    font-style: normal;
+    color: var(--ink);
+    font-weight: 500;
+  }
 
-  section.panel { margin-bottom: 44px; }
-  section.panel header { padding-bottom: 10px; }
-  section.panel h3 { font-size: 1.18rem; }
-  section.panel .section-no { font-size: 0.62rem; }
-  section.panel .lede { font-size: 0.93rem; margin: 12px 0 18px; }
-  .panel-body { gap: 20px; }
-  /* Definite height (not just min-height) so Chart.js sizes properly */
-  .chart-host { min-height: 0; height: 320px; }
-  .notes { padding: 16px 18px; font-size: 0.86rem; }
-  .notes h4 { font-size: 0.94rem; margin-bottom: 8px; }
-  .data-table { font-size: 0.72rem; }
-  .data-table th, .data-table td { padding: 5px 8px; }
-  .data-table th { font-size: 0.62rem; }
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 56px;
+  }
+  .kpi {
+    padding: 22px 28px;
+    border-right: 1px solid var(--rule);
+  }
+  .kpi:last-child { border-right: none; }
+  .kpi .label { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--ink-3); letter-spacing: 0.08em; margin-bottom: 6px; text-transform: uppercase; }
+  .kpi .value {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 2.4rem;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variation-settings: "opsz" 96;
+  }
+  .kpi .unit { font-family: 'DM Sans', sans-serif; font-size: 1rem; color: var(--ink-3); margin-left: 4px; font-weight: 400; }
+  .kpi .sub { margin-top: 6px; font-size: 0.78rem; color: var(--ink-3); }
+  .kpi .sub.good { color: var(--sage); }
+  .kpi .sub.warn { color: var(--amber); }
+  .kpi .sub.bad { color: var(--oxblood); }
 
-  .reco { padding: 20px; }
-  .reco .num { font-size: 1.7rem; margin-bottom: 6px; }
-  .reco h4 { font-size: 1rem; margin-bottom: 6px; }
-  .reco p { font-size: 0.85rem; }
+  section.panel { margin-bottom: 64px; }
+  section.panel header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 12px;
+  }
+  section.panel h3 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1.5rem;
+    letter-spacing: -0.01em;
+  }
+  section.panel .section-no {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--ink-3);
+    letter-spacing: 0.1em;
+  }
+  section.panel .lede {
+    font-family: 'Fraunces', serif;
+    font-size: 1.05rem;
+    font-style: italic;
+    color: var(--ink-2);
+    margin: 16px 0 24px;
+    max-width: 760px;
+    line-height: 1.5;
+  }
+  .panel-body { display: grid; grid-template-columns: 5fr 3fr; gap: 32px; align-items: start; }
+  .panel-body.full { grid-template-columns: 1fr; }
+  .chart-host { background: var(--paper); position: relative; height: 280px; }
+  .notes {
+    background: var(--paper-2);
+    padding: 22px 24px;
+    border-left: 2px solid var(--ink-blue);
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--ink-2);
+  }
+  .notes h4 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1rem;
+    margin-bottom: 10px;
+    color: var(--ink);
+  }
+  .notes p { margin-bottom: 10px; }
+  .notes p:last-child { margin-bottom: 0; }
+  .notes .stat {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    background: var(--paper);
+    padding: 1px 6px;
+    border-radius: 2px;
+    color: var(--ink);
+  }
 
-  /* Prevent iOS Safari from zooming in when focusing form inputs */
-  .form-row input, .form-row select { font-size: 16px; padding: 10px 12px; }
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+  }
+  .data-table th, .data-table td {
+    text-align: right;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .data-table th {
+    text-align: right;
+    color: var(--ink-3);
+    font-weight: 500;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--rule);
+  }
+  .data-table th:first-child, .data-table td:first-child { text-align: left; }
 
-  .reset-btn { font-size: 0.78rem; padding: 8px 14px; }
-  footer.app { padding: 16px 0 calc(20px + env(safe-area-inset-bottom)); margin-top: 40px; }
-  footer.app .container { flex-direction: column; gap: 6px; }
+  .reco-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+  .reco {
+    background: var(--paper);
+    padding: 24px;
+  }
+  .reco .num {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-style: italic;
+    font-size: 2rem;
+    color: var(--oxblood);
+    line-height: 1;
+    margin-bottom: 10px;
+    font-variation-settings: "opsz" 96;
+  }
+  .reco h4 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1.05rem;
+    margin-bottom: 8px;
+  }
+  .reco p {
+    font-size: 0.88rem;
+    color: var(--ink-2);
+    line-height: 1.5;
+  }
 
-  .loading { padding: 60px 0; }
-  .loading .spinner { width: 44px; height: 44px; }
-  .dash { padding: 28px 0 60px; }
-  .accept-card .label { font-size: 0.62rem; }
-}
+  .reset-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    background: none;
+    border: 1px solid var(--ink-3);
+    color: var(--ink-2);
+    padding: 6px 14px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+  }
+  .reset-btn:hover { border-color: var(--ink); color: var(--ink); background: var(--paper-2); }
 
-/* Touch devices: keep tap-targets at rest, no sticky hover */
-@media (hover: none) {
-  .drop:hover { background: var(--paper-2); border-color: var(--ink-3); }
-  .reset-btn:hover { border-color: var(--ink-3); color: var(--ink-2); background: none; }
-}
+  .error {
+    border: 1px solid var(--oxblood);
+    background: var(--oxblood-soft);
+    color: var(--ink);
+    padding: 18px 22px;
+    border-radius: 2px;
+    margin-bottom: 24px;
+    font-size: 0.92rem;
+  }
+  .error strong { color: var(--oxblood); display: block; margin-bottom: 4px; font-weight: 600; }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 18px;
+    margin-top: 24px;
+    padding: 20px;
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+  }
+  .form-row label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--ink-3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .form-row input, .form-row select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    color: var(--ink);
+  }
+
+  footer.app {
+    border-top: 1px solid var(--rule);
+    padding: 24px 0 32px;
+    margin-top: 60px;
+    font-size: 0.78rem;
+    color: var(--ink-3);
+    line-height: 1.5;
+  }
+  footer.app .container { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+
+  @media (max-width: 900px) {
+    .container { padding: 0 20px; }
+    .athlete-card { grid-template-columns: 1fr; }
+    .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+    .kpi:nth-child(2) { border-right: none; }
+    .kpi:nth-child(1), .kpi:nth-child(2) { border-bottom: 1px solid var(--rule); }
+    .panel-body { grid-template-columns: 1fr; }
+    .reco-grid { grid-template-columns: 1fr; }
+    .accepts { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+  }

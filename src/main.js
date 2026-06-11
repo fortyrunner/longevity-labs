@@ -9,13 +9,13 @@ const state = {
   loadStatus: '',
   loadSub: '',
   error: null,
-  manualProfile: null,
+  manualProfile: null, // { dob, sex } when supplied for CSV-only mode
   athlete: null,
   activities: [],
   vo2Series: [],
   fitnessAgeSeries: [],
-  source: null,       // 'csv' | 'zip'
-  charts: [],         // active Chart.js instances, destroyed on each re-render
+  source: null, // 'csv' | 'zip'
+  charts: [], // active ApexCharts instances for teardown
 };
 
 // Shared cache for the last computed analytics result.
@@ -23,6 +23,7 @@ const state = {
 let analytics = null;
 
 function render() {
+  // Destroy any existing chart instances first
   state.charts.forEach(c => { try { c.destroy(); } catch (e) {} });
   state.charts = [];
   const view = document.getElementById('view');
@@ -35,6 +36,15 @@ function render() {
   if (state.screen === 'landing') wireLanding();
   if (state.screen === 'dashboard') wireDashboard();
   updateFooterCounts();
+}
+
+function updateFooterCounts() {
+  const el = document.getElementById('data-counts');
+  if (state.screen === 'dashboard') {
+    el.textContent = `${state.activities.length} activities · ${state.vo2Series.length} VO₂ records · ${state.fitnessAgeSeries.length} bio-age days`;
+  } else {
+    el.textContent = '';
+  }
 }
 
 function reset() {
