@@ -66,11 +66,42 @@ function renderCharts() {
   if (state.source === 'csv' && !state.athlete) return;
   if (state.vo2Series.length) renderVo2Chart();
   if (analytics.efMonthly.series.length >= 3) renderEfChart();
+  if (analytics.parkrun.series.length >= 3) renderParkrunChart();
   renderVolumeChart();
   if (state.fitnessAgeSeries.length) renderBioAgeChart();
   if (analytics.bestPerYear.length) renderPerfChart();
   if (analytics.recentZoneSeconds) renderZoneChart();
-  if (analytics.gaitMonthly.length >= 3) renderGaitChart();
+  if (analytics.gaitMonthly.length >= 3 || analytics.formEconomy.monthly.length >= 3) renderFormEconomyChart();
+}
+
+function renderParkrunChart() {
+  const p = analytics.parkrun;
+  const scatterData = p.series.map(s => [dateToYear(s.date), s.time / 60]);
+  const rollingData = p.series
+    .map((s, i) => p.rolling[i] != null ? [dateToYear(s.date), p.rolling[i] / 60] : null)
+    .filter(Boolean);
+
+  const series = [{ name: 'parkrun result', type: 'scatter', data: scatterData }];
+  const colors = ['#1F3A5F'];
+  const widths = [0];
+  const markers = [4];
+  if (rollingData.length) {
+    series.push({ name: 'Rolling 4-result average', type: 'line', data: rollingData });
+    colors.push('#8B2635');
+    widths.push(2);
+    markers.push(0);
+  }
+
+  mountChart('chart-parkrun', {
+    ...baseChart('line'),
+    series,
+    colors,
+    stroke: { width: widths, curve: 'smooth' },
+    markers: { size: markers },
+    legend: { position: 'bottom' },
+    xaxis: yearAxis(),
+    yaxis: { title: { text: 'minutes' }, labels: { formatter: fixed(1) }, reversed: true },
+  });
 }
 
 function renderVo2Chart() {
@@ -124,18 +155,33 @@ function renderVo2Chart() {
 }
 
 function renderVolumeChart() {
-  const y = analytics.yearly;
+  const m = analytics.monthlyVolume;
+  const labels = m.map(x => x.date.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }));
+  const maxKm = Math.max(1, ...m.map(x => x.runKm + x.otherKm));
+  const maxCount = Math.max(1, ...m.map(x => x.strengthCount));
+  const scale = maxCount > 0 ? (maxKm * 0.6) / maxCount : 1;
+
   mountChart('chart-volume', {
-    ...baseChart('bar', { stacked: true }),
+    ...baseChart('line', { stacked: true }),
     series: [
-      { name: 'Running (km)', data: y.map(x => Math.round(x.runKm)) },
-      { name: 'Other (km)', data: y.map(x => Math.round(Math.max(0, x.km - x.runKm))) },
+      { name: 'Running (km)', type: 'column', data: m.map(x => Math.round(x.runKm)) },
+      { name: 'Other (km)', type: 'column', data: m.map(x => Math.round(x.otherKm)) },
+      { name: 'Strength sessions', type: 'line', data: m.map(x => Math.round(x.strengthCount * scale * 10) / 10) },
     ],
-    colors: ['#1F3A5F', '#A8A29E'],
-    plotOptions: { bar: { borderRadius: 1, borderRadiusApplication: 'end' } },
+    colors: ['#1F3A5F', '#A8A29E', '#8B2635'],
+    plotOptions: { bar: { borderRadius: 1, borderRadiusApplication: 'end', columnWidth: '70%' } },
+    stroke: { width: [0, 0, 2], curve: 'smooth' },
+    markers: { size: [0, 0, 3] },
     legend: { position: 'bottom' },
-    xaxis: { categories: y.map(x => String(x.year)) },
+    xaxis: { categories: labels, tickAmount: 12 },
     yaxis: { title: { text: 'km' }, labels: { formatter: fixed(0) } },
+    tooltip: {
+      y: {
+        formatter: (val, opts) => (opts && opts.seriesIndex === 2)
+          ? `${Math.round(val / scale)} session${Math.round(val / scale) === 1 ? '' : 's'}`
+          : `${fixed(0)(val)} km`,
+      },
+    },
   });
 }
 
@@ -174,44 +220,53 @@ function renderEfChart() {
   });
 }
 
-function renderGaitChart() {
-  const g = analytics.gaitMonthly;
+function renderFormEconomyChart() {
+  const fe = analytics.formEconomy;
+  const monthly = fe.monthly;
   const series = [];
   const colors = [];
   const widths = [];
-  const dashes = [];
   const yaxis = [];
+  const annotations = { yaxis: [] };
 
-  if (g.some(m => m.stride != null)) {
-    series.push({
-      name: 'Stride length (m)',
-      data: g.filter(m => m.stride != null).map(m => [dateToYear(m.date), m.stride]),
-    });
-    colors.push('#B8753D');
-    widths.push(2);
-    dashes.push(0);
-    yaxis.push({ seriesName: 'Stride length (m)', title: { text: 'stride (m)' }, labels: { formatter: fixed(2) } });
-  }
-  if (g.some(m => m.cad != null)) {
-    series.push({
-      name: 'Cadence (spm)',
-      data: g.filter(m => m.cad != null).map(m => [dateToYear(m.date), m.cad]),
-    });
+  const withCad = monthly.filter(m => m.cad != null);
+  if (withCad.length) {
+    series.push({ name: 'Cadence (spm)', data: withCad.map(m => [dateToYear(m.date), m.cad]) });
     colors.push('#1F3A5F');
-    widths.push(1.5);
-    dashes.push(4);
-    yaxis.push({ seriesName: 'Cadence (spm)', opposite: true, title: { text: 'cadence (spm)' }, labels: { formatter: fixed(0) } });
+    widths.push(2);
+    yaxis.push({ seriesName: 'Cadence (spm)', title: { text: 'cadence (spm)' }, labels: { formatter: fixed(0) } });
+    annotations.yaxis.push({
+      y: 170, y2: 180, yAxisIndex: yaxis.length - 1,
+      borderColor: 'transparent', fillColor: 'rgba(92,122,90,0.15)',
+      label: { text: 'optimal cadence', position: 'left', style: { color: '#5C7A5A', background: 'transparent' } },
+    });
   }
 
-  mountChart('chart-gait', {
+  if (fe.hasGct) {
+    const withGct = monthly.filter(m => m.gct != null);
+    if (withGct.length) {
+      series.push({ name: 'Ground contact time (ms)', data: withGct.map(m => [dateToYear(m.date), m.gct]) });
+      colors.push('#B8753D');
+      widths.push(2);
+      yaxis.push({ seriesName: 'Ground contact time (ms)', opposite: true, title: { text: 'GCT (ms)' }, labels: { formatter: fixed(0) } });
+      annotations.yaxis.push({
+        y: 260, yAxisIndex: yaxis.length - 1,
+        borderColor: '#8B2635', strokeDashArray: 4,
+        label: { text: 'GCT target 260ms', position: 'right', style: { color: '#8B2635', background: 'transparent' } },
+      });
+    }
+  }
+
+  mountChart('chart-form-economy', {
     ...baseChart('line'),
     series,
     colors,
-    stroke: { width: widths, dashArray: dashes, curve: 'smooth' },
+    stroke: { width: widths, curve: 'smooth' },
     markers: { size: 0 },
     legend: { position: 'bottom' },
     xaxis: yearAxis(),
     yaxis,
+    annotations,
   });
 }
 

@@ -4,8 +4,8 @@
    No DOM or rendering — returns plain objects consumed by the UI module.
    ============================================================================ */
 
-const CARDIO_TYPES = new Set(['running','cycling','indoor_cycling','virtual_cycling','treadmill_running','trail_running','road_biking','mountain_biking','indoor_running']);
-const RUN_TYPES = new Set(['running','treadmill_running','trail_running','indoor_running']);
+const CARDIO_TYPES = new Set(['running','cycling','indoor_cycling','virtual_cycling','treadmill_running','trail_running','road_biking','mountain_biking','indoor_running','street_running','track_running']);
+const RUN_TYPES = new Set(['running','treadmill_running','trail_running','indoor_running','street_running','track_running']);
 
 function isRun(a) { return RUN_TYPES.has(a.type); }
 function isCardio(a) { return CARDIO_TYPES.has(a.type); }
@@ -82,7 +82,7 @@ function computeAnalytics() {
 
   // Recent intensity distribution (last 12 months of running before the anchor)
   const recent = acts.filter(a => isRun(a) && a.avg_hr && a.moving_s && a.date.getTime() > now - 365.25*86400*1000);
-  out.recentZoneSeconds = computeZoneSeconds(recent, ath);
+  out.recentZoneSeconds = computeZoneSeconds(recent, ath, acts);
 
   // Training-load spike index: EWMA acute (7-day τ) vs chronic (28-day τ)
   // running hours over the 120 days before the anchor. The classic rolling
@@ -108,6 +108,31 @@ function computeAnalytics() {
 
   // Biomechanics: monthly mean cadence + stride length on runs
   out.gaitMonthly = computeGaitTrend(runs);
+
+  // Running form & economy: monthly cadence/GCT trend + overall VO/VR averages
+  out.formEconomy = computeFormEconomy(runs);
+
+  // parkrun series — auto-detected from activity titles, rolling-4 average + PR
+  out.parkrun = computeParkrunSeries(acts);
+
+  // Monthly training volume (last 24 months): running/other km + strength session count
+  out.monthlyVolume = computeMonthlyVolume(acts, now);
+
+  // Training consistency heatmap: per-day run/strength/rest for the last 12 months
+  out.heatmap = computeTrainingHeatmap(acts, now);
+
+  // Strength session frequency (sessions/week, last 12 months before the anchor)
+  const oneYearAgo = now - 365.25*86400*1000;
+  out.strengthPerWeek = acts.filter(a => a.type === 'strength_training' && a.date.getTime() > oneYearAgo && a.date.getTime() <= now).length / 52.18;
+
+  // All-time personal bests by distance, for ★ markers in the performance table
+  out.pbByDist = {};
+  for (const b of out.bestPerYear) {
+    if (out.pbByDist[b.distance] == null || b.time < out.pbByDist[b.distance]) out.pbByDist[b.distance] = b.time;
+  }
+
+  // Protein target + example-day food suggestions (null if weight unknown)
+  out.nutrition = computeNutrition();
 
   return out;
 }
@@ -189,6 +214,128 @@ function computeGaitTrend(runs) {
     .sort((a, b) => a.date - b.date);
 }
 
+/* Cadence + ground-contact-time monthly trend, plus overall vertical
+   oscillation / vertical ratio averages. GCT/VO/VR are only present in full
+   Garmin zip exports — `hasGct` lets the UI degrade gracefully for CSV users. */
+function computeFormEconomy(runs) {
+  const byMonth = {};
+  let voSum = 0, voN = 0, vrSum = 0, vrN = 0, hasGct = false;
+  for (const a of runs) {
+    const cad = a.avg_cad && a.avg_cad > 120 && a.avg_cad < 230 ? a.avg_cad : null;
+    const gct = a.avg_gct_ms && a.avg_gct_ms > 150 && a.avg_gct_ms < 400 ? a.avg_gct_ms : null;
+    if (gct) hasGct = true;
+    if (a.avg_vo_cm && a.avg_vo_cm > 0 && a.avg_vo_cm < 20) { voSum += a.avg_vo_cm; voN++; }
+    if (a.avg_vr_pct && a.avg_vr_pct > 0 && a.avg_vr_pct < 20) { vrSum += a.avg_vr_pct; vrN++; }
+    if (!cad && !gct) continue;
+    const k = a.date.getFullYear() + '-' + String(a.date.getMonth() + 1).padStart(2, '0');
+    if (!byMonth[k]) byMonth[k] = { date: new Date(a.date.getFullYear(), a.date.getMonth(), 15), cad: [], gct: [] };
+    if (cad) byMonth[k].cad.push(cad);
+    if (gct) byMonth[k].gct.push(gct);
+  }
+  const monthly = Object.values(byMonth)
+    .map(m => ({
+      date: m.date,
+      cad: m.cad.length ? m.cad.reduce((s, v) => s + v, 0) / m.cad.length : null,
+      gct: m.gct.length ? m.gct.reduce((s, v) => s + v, 0) / m.gct.length : null,
+    }))
+    .sort((a, b) => a.date - b.date);
+
+  let cadenceTrend = null;
+  const withCad = monthly.filter(m => m.cad != null);
+  if (withCad.length >= 4) {
+    const t0 = withCad[0].date.getTime();
+    const reg = linReg(withCad.map(m => ({ x: (m.date.getTime() - t0) / (365.25 * 86400000), y: m.cad })));
+    if (reg.slope > 1) cadenceTrend = 'rising';
+    else if (reg.slope < -1) cadenceTrend = 'falling';
+    else cadenceTrend = 'stable';
+  }
+
+  return {
+    monthly,
+    voAvgCm: voN ? voSum / voN : null,
+    vrPct: vrN ? vrSum / vrN : null,
+    cadenceTrend,
+    hasGct,
+  };
+}
+
+/* parkrun results — auto-detected from activity titles. Rolling average is
+   over the last 4 results (not calendar weeks), since parkruns are roughly
+   but not strictly weekly. */
+function computeParkrunSeries(acts) {
+  const series = acts
+    .filter(a => /parkrun/i.test(a.name) && a.duration_s)
+    .map(a => ({ date: a.date, time: a.duration_s, distance_km: a.distance_km, name: a.name }))
+    .sort((x, y) => x.date - y.date);
+  if (!series.length) return { series: [], pr: null, rolling: [] };
+  const pr = Math.min(...series.map(s => s.time));
+  const rolling = series.map((s, i) => {
+    if (i < 3) return null;
+    const window = series.slice(i - 3, i + 1);
+    return window.reduce((sum, w) => sum + w.time, 0) / window.length;
+  });
+  return { series, pr, rolling };
+}
+
+/* Monthly running/other distance + strength session counts for the last 24
+   months ending at the month containing `nowMs`. Includes empty months. */
+function computeMonthlyVolume(acts, nowMs) {
+  const anchor = new Date(nowMs);
+  const months = [];
+  const byKey = {};
+  for (let i = 23; i >= 0; i--) {
+    const d = new Date(anchor.getFullYear(), anchor.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const m = { date: d, key, runKm: 0, otherKm: 0, strengthCount: 0 };
+    months.push(m);
+    byKey[key] = m;
+  }
+  for (const a of acts) {
+    const key = `${a.date.getFullYear()}-${String(a.date.getMonth() + 1).padStart(2, '0')}`;
+    const m = byKey[key];
+    if (!m) continue;
+    if (a.type === 'strength_training') m.strengthCount += 1;
+    else if (isRun(a)) m.runKm += a.distance_km;
+    else m.otherKm += a.distance_km;
+  }
+  return months;
+}
+
+/* Per-day training category for the last 12 months: 'run' (oxblood),
+   'strength' (sage), or 'rest' (everything else — walk/cycling/no activity).
+   Run takes priority over strength if both occurred on the same day. */
+function computeTrainingHeatmap(acts, nowMs) {
+  const end = new Date(nowMs);
+  end.setHours(0, 0, 0, 0);
+  const start = new Date(end);
+  start.setDate(start.getDate() - 363);
+  const dayCats = new Map();
+  for (const a of acts) {
+    const d = new Date(a.date.getFullYear(), a.date.getMonth(), a.date.getDate());
+    if (d < start || d > end) continue;
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (!dayCats.has(key)) dayCats.set(key, { run: false, strength: false });
+    const e = dayCats.get(key);
+    if (isRun(a)) e.run = true;
+    if (a.type === 'strength_training') e.strength = true;
+  }
+  const days = new Map();
+  for (const [key, e] of dayCats) days.set(key, e.run ? 'run' : (e.strength ? 'strength' : 'rest'));
+  return { days, start, end };
+}
+
+/* Fallback HRmax estimate when no DOB and no LTHR are available: mean of the
+   top-3 highest recorded max_hr values across the full activity history. */
+function estimateMaxHRFromActivities(allActs) {
+  const top = (allActs || [])
+    .map(a => a.max_hr)
+    .filter(h => h && h > 100)
+    .sort((a, b) => b - a)
+    .slice(0, 3);
+  if (top.length < 3) return null;
+  return top.reduce((s, v) => s + v, 0) / top.length;
+}
+
 function median(arr) {
   const s = [...arr].sort((a, b) => a - b);
   const mid = Math.floor(s.length / 2);
@@ -209,13 +356,21 @@ function linReg(pts) {
   return { slope, intercept, r2 };
 }
 
-function computeZoneSeconds(acts, athlete) {
+function computeZoneSeconds(acts, athlete, allActs) {
   // Use 5-zone Karvonen-style boundaries from LTHR if known, else age-predicted
   let lthr = athlete && athlete.lthr ? athlete.lthr : null;
   let maxhr = null;
+  let maxhrSource = null;
   if (athlete && athlete.dob) {
     const age = (Date.now() - athlete.dob.getTime())/(365.25*86400*1000);
     maxhr = predictedMaxHR(age, athlete.sex); // Tanaka / Gulati
+    maxhrSource = 'predicted';
+  }
+  if (!lthr && !maxhr) {
+    // No DOB and no LTHR: estimate HRmax from observed activity data rather
+    // than skipping the zones panel entirely.
+    maxhr = estimateMaxHRFromActivities(allActs);
+    if (maxhr) maxhrSource = 'estimated';
   }
   if (!lthr && !maxhr) return null;
   if (!lthr && maxhr) lthr = maxhr * 0.89;
@@ -246,7 +401,7 @@ function computeZoneSeconds(acts, athlete) {
     }
     sec[zone] += a.moving_s;
   }
-  return { sec, lthr, maxhr, teCorrections };
+  return { sec, lthr, maxhr, teCorrections, maxhrSource };
 }
 
 /* Age-graded VO2max norms, ml/kg/min.

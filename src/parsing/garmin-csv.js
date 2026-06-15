@@ -34,6 +34,10 @@ function normalizeCsvActivity(row) {
     max_hr: numOrNull(row['Max HR']),
     avg_cad: numOrNull(row['Avg Run Cadence']), // CSV already reports total steps/min
     avg_stride_m: numOrNull(row['Avg Stride Length']),
+    avg_gct_ms: null,
+    avg_vo_cm: null,
+    avg_vr_pct: null,
+    steps: null,
     vo2max: null,
     aerobic_te: numOrNull(row['Aerobic TE']),
     calories: parseInt(stripCommas(row.Calories)) || null,

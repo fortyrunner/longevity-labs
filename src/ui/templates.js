@@ -92,18 +92,66 @@ function dashboardHTML() {
   analytics = computeAnalytics();
   _sectionCounter = 0;
   return [
+    aiNarrativePanelHTML(),
     athleteHeaderHTML(),
     kpiStripHTML(),
     state.vo2Series.length ? vo2PanelHTML() : '',
     analytics.efMonthly.series.length >= 3 ? efPanelHTML() : '',
+    analytics.parkrun.series.length >= 3 ? parkrunPanelHTML() : '',
     volumePanelHTML(),
     state.fitnessAgeSeries.length ? bioAgePanelHTML() : '',
     performancePanelHTML(),
     intensityPanelHTML(),
-    analytics.gaitMonthly.length >= 3 ? gaitPanelHTML() : '',
+    (analytics.gaitMonthly.length >= 3 || analytics.formEconomy.monthly.length >= 3) ? formEconomyPanelHTML() : '',
+    heatmapPanelHTML(),
+    analytics.nutrition ? proteinPanelHTML() : '',
     projectionPanelHTML(),
     `<div style="text-align:center;margin-top:40px"><button class="reset-btn" onclick="reset()">Load a different file</button></div>`,
   ].join('');
+}
+
+/* ---- AI Narrative ---- */
+
+function aiNarrativePanelHTML() {
+  return `
+    <div class="narrative-panel">
+      <div class="narrative-eyebrow">AI TRAJECTORY ANALYSIS</div>
+      <div class="narrative-body" id="ai-narrative-body">${aiNarrativeBodyHTML()}</div>
+    </div>
+  `;
+}
+
+function aiNarrativeBodyHTML() {
+  const key = getApiKey();
+  const n = state.narrative;
+  if (!key) {
+    return `
+      <p class="narrative-pitch">Generate a full clinical-style trajectory narrative for this athlete using Claude (model: ${NARRATIVE_MODEL}). Only a statistical summary of the analytics on this page — no raw activity data — is sent. Your API key is stored only in this browser's local storage and is used solely to call the Anthropic API directly.</p>
+      <div class="narrative-key-form">
+        <input type="password" id="narrative-key-input" placeholder="sk-ant-..." autocomplete="off" />
+        <button class="reset-btn" onclick="saveApiKeyAndGenerate()">Generate analysis</button>
+      </div>
+    `;
+  }
+  if (n.status === 'done') {
+    return `
+      <p class="narrative-text">${escapeHTML(n.text)}</p>
+      <div class="narrative-actions">
+        <button class="narrative-link" onclick="regenerateNarrative()">Regenerate</button>
+        <button class="narrative-link" onclick="changeApiKey()">Change API key</button>
+      </div>
+    `;
+  }
+  if (n.status === 'error') {
+    return `
+      <p class="narrative-text narrative-error">Couldn't generate the analysis: ${escapeHTML(n.error)}</p>
+      <div class="narrative-actions">
+        <button class="narrative-link" onclick="regenerateNarrative()">Retry</button>
+        <button class="narrative-link" onclick="changeApiKey()">Change API key</button>
+      </div>
+    `;
+  }
+  return `<div class="narrative-loading"><div class="spinner"></div><span>Generating your analysis&hellip;</span></div>`;
 }
 
 function manualProfileFormHTML() {
@@ -127,6 +175,14 @@ function manualProfileFormHTML() {
           <label>Resting HR (optional)</label>
           <input type="number" id="rhr-input" min="30" max="100" placeholder="e.g. 50" />
         </div>
+        <div>
+          <label>Weight in kg (optional)</label>
+          <input type="number" id="weight-input" min="30" max="250" step="0.1" placeholder="e.g. 75" />
+        </div>
+        <div>
+          <label>Anthropic API key (optional)</label>
+          <input type="password" id="api-key-input" placeholder="sk-ant-..." autocomplete="off" />
+        </div>
       </div>
       <div style="margin-top:18px">
         <button class="reset-btn" onclick="submitManualProfile()">Continue →</button>
@@ -139,12 +195,16 @@ function submitManualProfile() {
   const dob = document.getElementById('dob-input').value;
   const sex = document.getElementById('sex-input').value;
   const rhr = parseInt(document.getElementById('rhr-input').value) || null;
+  const weightKg = parseFloat(document.getElementById('weight-input').value) || null;
+  const apiKey = document.getElementById('api-key-input').value.trim();
   if (!dob) { alert('Please enter a date of birth.'); return; }
+  if (apiKey) setApiKey(apiKey);
   state.athlete = {
     name: 'Athlete',
     sex,
     dob: new Date(dob + 'T00:00:00'),
     rhr, // surfaced in the header and used as a recovery reference
+    weightG: weightKg ? weightKg * 1000 : null, // used for protein targets
   };
   state.athlete.ageYears = (Date.now() - state.athlete.dob.getTime()) / (365.25*86400*1000);
   render();
@@ -189,6 +249,7 @@ function athleteHeaderHTML() {
 function kpiStripHTML() {
   const a = state.athlete;
   const vo2Latest = state.vo2Series.length ? state.vo2Series[state.vo2Series.length-1].value : (a.vo2maxCurrent || null);
+  const noVo2 = !vo2Latest;
   const norm = a.ageYears ? vo2NormForAgeSex(a.ageYears, a.sex) : null;
   let vo2Sub = '';
   if (vo2Latest && norm) {
@@ -199,20 +260,14 @@ function kpiStripHTML() {
     else vo2Sub = `<span class="bad">below average</span>`;
   }
 
-  let bioGapKpi = '';
-  if (state.fitnessAgeSeries.length) {
-    const last = state.fitnessAgeSeries[state.fitnessAgeSeries.length-1];
-    const gap = last.chronoAge - last.bioAge;
-    const cls = gap > 5 ? 'good' : (gap > 0 ? 'warn' : 'bad');
-    bioGapKpi = `
-      <div class="kpi">
-        <div class="label">Bio age gap</div>
-        <div class="value">${gap >= 0 ? '−' : '+'}${Math.abs(gap).toFixed(1)}<span class="unit">y</span></div>
-        <div class="sub ${cls}">${gap >= 0 ? 'younger than calendar' : 'older than calendar'}</div>
-      </div>`;
-  }
-
   const lastYearKm = analytics.lastYearKm;
+  const runningKpi = `
+    <div class="kpi">
+      <div class="label">Running, last 12 mo</div>
+      <div class="value">${Math.round(lastYearKm)}<span class="unit">km</span></div>
+      <div class="sub">${Math.round(lastYearKm/52)} km/wk avg</div>
+    </div>`;
+
   const lr = analytics.loadRatio;
   let lrSub = '—';
   if (lr && lr.ratio != null) {
@@ -231,29 +286,83 @@ function kpiStripHTML() {
     else declineSub = `<span class="bad">faster than typical</span>`;
   }
 
+  // Aerobic-efficiency trend — the fallback signal for KPI2 when no VO2max data exists.
+  const ef = analytics.efMonthly;
+  let efPctPerYear = null, efSub = '';
+  if (ef && ef.reg && ef.series.length) {
+    efPctPerYear = ef.reg.slope / ef.series[0].ef * 100;
+    if (efPctPerYear > 1) efSub = `<span class="good">improving</span>`;
+    else if (efPctPerYear > -1) efSub = `<span class="good">stable</span>`;
+    else if (efPctPerYear > -3) efSub = `<span class="warn">drifting down</span>`;
+    else efSub = `<span class="bad">falling</span>`;
+  }
+
+  // KPI1: VO2max latest, or running volume when no VO2 data
+  const kpi1 = noVo2 ? runningKpi : `
+    <div class="kpi">
+      <div class="label">VO₂max — latest</div>
+      <div class="value">${vo2Latest.toFixed(0)}<span class="unit">ml·kg⁻¹·min⁻¹</span></div>
+      <div class="sub">${vo2Sub}</div>
+    </div>`;
+
+  // KPI2: VO2max trend, or aerobic-efficiency trend when no VO2 data
+  const kpi2 = noVo2 ? `
+    <div class="kpi">
+      <div class="label">Aerobic efficiency trend</div>
+      <div class="value">${efPctPerYear != null ? (efPctPerYear >= 0 ? '+' : '−') + Math.abs(efPctPerYear).toFixed(1) : '—'}<span class="unit">%/yr</span></div>
+      <div class="sub">${efSub}</div>
+    </div>` : `
+    <div class="kpi">
+      <div class="label">VO₂max trend</div>
+      <div class="value">${decline != null ? (decline >= 0 ? '−' : '+') + Math.abs(decline).toFixed(2) : '—'}<span class="unit">/yr</span></div>
+      <div class="sub">${declineSub}</div>
+    </div>`;
+
+  // KPI3: bio age gap if available; otherwise running volume (only when KPI1
+  // isn't already showing it, i.e. when VO2 data is present)
+  let kpi3 = '';
+  if (state.fitnessAgeSeries.length) {
+    const last = state.fitnessAgeSeries[state.fitnessAgeSeries.length-1];
+    const gap = last.chronoAge - last.bioAge;
+    const cls = gap > 5 ? 'good' : (gap > 0 ? 'warn' : 'bad');
+    kpi3 = `
+      <div class="kpi">
+        <div class="label">Bio age gap</div>
+        <div class="value">${gap >= 0 ? '−' : '+'}${Math.abs(gap).toFixed(1)}<span class="unit">y</span></div>
+        <div class="sub ${cls}">${gap >= 0 ? 'younger than calendar' : 'older than calendar'}</div>
+      </div>`;
+  } else if (!noVo2) {
+    kpi3 = runningKpi;
+  }
+
+  // KPI4: load spike index
+  const kpi4 = `
+    <div class="kpi">
+      <div class="label">Load spike index (EWMA)</div>
+      <div class="value">${lr && lr.ratio != null ? lr.ratio.toFixed(2) : '—'}</div>
+      <div class="sub">${lrSub}</div>
+    </div>`;
+
+  // KPI5: strength sessions/week
+  const spw = analytics.strengthPerWeek;
+  let spwSub;
+  if (spw >= 2) spwSub = `<span class="good">on target</span>`;
+  else if (spw >= 1) spwSub = `<span class="warn">sub-optimal</span>`;
+  else spwSub = `<span class="bad">insufficient</span>`;
+  const kpi5 = `
+    <div class="kpi">
+      <div class="label">Strength sessions/wk</div>
+      <div class="value">${spw.toFixed(1)}</div>
+      <div class="sub">${spwSub}</div>
+    </div>`;
+
   return `
     <div class="kpi-strip">
-      <div class="kpi">
-        <div class="label">VO₂max — latest</div>
-        <div class="value">${vo2Latest ? vo2Latest.toFixed(0) : '—'}<span class="unit">ml·kg⁻¹·min⁻¹</span></div>
-        <div class="sub">${vo2Sub}</div>
-      </div>
-      <div class="kpi">
-        <div class="label">VO₂max trend</div>
-        <div class="value">${decline != null ? (decline >= 0 ? '−' : '+') + Math.abs(decline).toFixed(2) : '—'}<span class="unit">/yr</span></div>
-        <div class="sub">${declineSub}</div>
-      </div>
-      ${bioGapKpi || `
-      <div class="kpi">
-        <div class="label">Running, last 12 mo</div>
-        <div class="value">${Math.round(lastYearKm)}<span class="unit">km</span></div>
-        <div class="sub">${Math.round(lastYearKm/52)} km/wk avg</div>
-      </div>`}
-      <div class="kpi">
-        <div class="label">Load spike index (EWMA)</div>
-        <div class="value">${lr && lr.ratio != null ? lr.ratio.toFixed(2) : '—'}</div>
-        <div class="sub">${lrSub}</div>
-      </div>
+      ${kpi1}
+      ${kpi2}
+      ${kpi3}
+      ${kpi4}
+      ${kpi5}
     </div>
   `;
 }
@@ -387,8 +496,8 @@ function volumePanelHTML() {
     : `<p>No layoffs longer than 21 days in the running record — for masters longevity, this consistency matters more than any single metric below.</p>`;
   return `
     <section class="panel">
-      <header><h3>Annual training volume</h3><span class="section-no">${secNo()}</span></header>
-      <p class="lede">Sustained volume is what builds the aerobic foundation. Drops of more than ~25% year-on-year usually flag an injury, illness, or life event worth investigating.</p>
+      <header><h3>Training volume</h3><span class="section-no">${secNo()}</span></header>
+      <p class="lede">Monthly running and non-running distance, with strength sessions overlaid. Sustained volume is what builds the aerobic foundation — drops of more than ~25% year-on-year (see notes) usually flag an injury, illness, or life event worth investigating.</p>
       <div class="panel-body">
         <div class="chart-host"><div id="chart-volume"></div></div>
         <div class="notes">
@@ -443,7 +552,9 @@ function performancePanelHTML() {
   const tableRows = recentYears.map(y => {
     const cells = dists.map(d => {
       const r = bp.find(b => b.year === y && b.distance === d);
-      return `<td>${r ? fmtTime(r.time) : '—'}</td>`;
+      if (!r) return `<td>—</td>`;
+      const star = analytics.pbByDist[d] === r.time ? '<span class="pb-star"> ★</span>' : '';
+      return `<td>${fmtTime(r.time)}${star}</td>`;
     }).join('');
     // Best age-grade across distances that year
     let agCell = '';
@@ -457,6 +568,7 @@ function performancePanelHTML() {
   const agNote = haveAG
     ? `<p style="margin-top:12px;font-size:0.84rem;color:var(--ink-3)">Age-grade (AG%) restates each time against the world-best for that age and sex, so it isolates fitness from ageing: 60%+ is good local-club standard, 70%+ regional, 80%+ national. A flat or rising AG% while raw times slow means you are <em>beating the clock of ageing</em>. Times don't control for course or weather — treat the trend.</p>`
     : `<p style="margin-top:12px;font-size:0.84rem;color:var(--ink-3)">Times do not control for course, weather, or whether the effort was a race. Treat the trend, not the individual numbers. (Add date of birth and sex to unlock age-grading.)</p>`;
+  const pbNote = `<p style="margin-top:6px;font-size:0.84rem;color:var(--ink-3)"><span class="pb-star">★</span> = all-time personal best at that distance.</p>`;
 
   return `
     <section class="panel">
@@ -470,6 +582,7 @@ function performancePanelHTML() {
             <thead><tr><th>Year</th><th>5K</th><th>10K</th><th>Half</th><th>Marathon</th>${agHead}</tr></thead>
             <tbody>${tableRows}</tbody>
           </table>
+          ${pbNote}
           ${agNote}
         </div>
       </div>
@@ -498,6 +611,12 @@ function intensityPanelHTML() {
   else if (easy < 70) verdict = `Too much time in the moderate-to-hard tempo zone ("grey zone") — fatigue accumulates without the proportional aerobic adaptation. Worth shifting some sessions clearly easier and others clearly harder.`;
   else verdict = `Intensity mix is broadly appropriate.`;
 
+  let maxhrNote = '';
+  if (data.maxhr) {
+    if (data.maxhrSource === 'estimated') maxhrNote = ` &middot; max HR estimated from observed activity data (top recorded values): ${Math.round(data.maxhr)} bpm`;
+    else maxhrNote = ` &middot; predicted max ${Math.round(data.maxhr)}`;
+  }
+
   return `
     <section class="panel">
       <header><h3>Intensity distribution &mdash; last 12 months</h3><span class="section-no">${secNo()}</span></header>
@@ -508,44 +627,180 @@ function intensityPanelHTML() {
           <h4>Easy / Hard ratio</h4>
           <p><span class="stat">${ratio}</span> &middot; total ${(total/3600).toFixed(0)} hours of HR-tracked running</p>
           <p>${verdict}</p>
-          <p style="font-size:0.84rem;color:var(--ink-3)">Zones derived from lactate-threshold HR (<span class="stat">${Math.round(data.lthr)} bpm</span>${data.maxhr ? ` &middot; predicted max ${Math.round(data.maxhr)}` : ''}) using Friel-style boundaries. Each run is bucketed by its <em>average</em> HR, which understates interval work — ${data.teCorrections ? `${data.teCorrections} session${data.teCorrections>1?'s were':' was'} reclassified as hard via Aerobic TE` : 'no Aerobic-TE corrections were needed here'}. Read this as directional, not exact.</p>
+          <p style="font-size:0.84rem;color:var(--ink-3)">Zones derived from lactate-threshold HR (<span class="stat">${Math.round(data.lthr)} bpm</span>${maxhrNote}) using Friel-style boundaries. Each run is bucketed by its <em>average</em> HR, which understates interval work — ${data.teCorrections ? `${data.teCorrections} session${data.teCorrections>1?'s were':' was'} reclassified as hard via Aerobic TE` : 'no Aerobic-TE corrections were needed here'}. Read this as directional, not exact.</p>
         </div>
       </div>
     </section>
   `;
 }
 
-function gaitPanelHTML() {
+function formEconomyPanelHTML() {
   const g = analytics.gaitMonthly;
+  const fe = analytics.formEconomy;
   const withStride = g.filter(m => m.stride != null);
-  const withCad = g.filter(m => m.cad != null);
-  let strideText = '', cadText = '', verdict = '';
+  let strideText = '', strideVerdict = '';
   if (withStride.length >= 3) {
     const s0 = withStride[0], s1 = withStride[withStride.length - 1];
     const dStride = (s1.stride - s0.stride) / s0.stride * 100;
     strideText = `<p>Mean stride length: <span class="stat">${s0.stride.toFixed(2)} m</span> → <span class="stat">${s1.stride.toFixed(2)} m</span> (${dStride>=0?'+':''}${dStride.toFixed(1)}%)</p>`;
-    if (dStride < -4) verdict = 'Stride length is shortening. In masters runners this — not cadence — is the dominant mechanism of pace decline, and it tracks losses in lower-limb power and elasticity. It is also the most addressable: it responds to strength work, plyometrics, and strides.';
-    else if (dStride > 4) verdict = 'Stride length is lengthening — typically a sign of improving power or a return to fitness after a base period.';
-    else verdict = 'Stride length is stable, which is a good sign that lower-limb power is being preserved.';
+    if (dStride < -4) strideVerdict = 'Stride length is shortening. In masters runners this — not cadence — is the dominant mechanism of pace decline, and it tracks losses in lower-limb power and elasticity. It is also the most addressable: it responds to strength work, plyometrics, and strides.';
+    else if (dStride > 4) strideVerdict = 'Stride length is lengthening — typically a sign of improving power or a return to fitness after a base period.';
+    else strideVerdict = 'Stride length is stable, which is a good sign that lower-limb power is being preserved.';
   }
-  if (withCad.length >= 3) {
+
+  let cadText = '';
+  const withCad = fe.monthly.filter(m => m.cad != null);
+  if (withCad.length >= 2) {
     const c0 = withCad[0], c1 = withCad[withCad.length - 1];
-    cadText = `<p>Mean cadence: <span class="stat">${c0.cad.toFixed(0)} spm</span> → <span class="stat">${c1.cad.toFixed(0)} spm</span></p>`;
+    cadText = `<p>Mean cadence: <span class="stat">${c0.cad.toFixed(0)} spm</span> → <span class="stat">${c1.cad.toFixed(0)} spm</span> <span style="color:var(--ink-3)">(170–180 spm typically considered optimal)</span></p>`;
   }
+
+  let cadenceTrendText = '';
+  if (fe.cadenceTrend === 'rising') cadenceTrendText = 'Cadence is trending up — often a sign of improving neuromuscular efficiency, though it can also reflect a higher share of faster running.';
+  else if (fe.cadenceTrend === 'falling') cadenceTrendText = 'Cadence is trending down — worth watching alongside stride length, since the combination usually signals fatigue or declining lower-limb power.';
+  else if (fe.cadenceTrend === 'stable') cadenceTrendText = 'Cadence is stable, sitting close to the range generally associated with efficient running form.';
+
+  let gctText = '';
+  const withGct = fe.monthly.filter(m => m.gct != null);
+  if (fe.hasGct && withGct.length >= 2) {
+    const gctLast = withGct[withGct.length - 1].gct;
+    gctText = `<p>Latest ground contact time: <span class="stat">${gctLast.toFixed(0)} ms</span> — ${gctLast < 260 ? 'within the &lt;260 ms target' : 'above the ~260 ms target'}</p>`;
+  }
+
+  let voVrText = '';
+  if (fe.voAvgCm != null || fe.vrPct != null) {
+    const parts = [];
+    if (fe.voAvgCm != null) parts.push(`vertical oscillation <span class="stat">${fe.voAvgCm.toFixed(1)} cm</span>`);
+    if (fe.vrPct != null) parts.push(`vertical ratio <span class="stat">${fe.vrPct.toFixed(1)}%</span>`);
+    voVrText = `<p>Average ${parts.join(' &middot; ')} across the data window.</p>`;
+  }
+
+  const gctNote = !fe.hasGct
+    ? `<p style="font-size:0.84rem;color:var(--ink-3)">Ground contact time, vertical oscillation and vertical ratio require a full Garmin zip export — not present in the CSV export.</p>`
+    : '';
+
   return `
     <section class="panel">
-      <header><h3>Running mechanics — cadence &amp; stride</h3><span class="section-no">${secNo()}</span></header>
-      <p class="lede">Speed is cadence × stride length. With age, runners lose pace mainly by shortening their stride, not by turning over more slowly — so stride length is the early-warning channel worth watching, and the one strength training can defend.</p>
+      <header><h3>Running form &amp; economy</h3><span class="section-no">${secNo()}</span></header>
+      <p class="lede">Speed is cadence × stride length, but how efficiently that speed is produced — ground contact time, vertical oscillation, vertical ratio — shifts with both fitness and age. Watching these together separates "running differently" from "running worse."</p>
       <div class="panel-body">
-        <div class="chart-host"><div id="chart-gait"></div></div>
+        <div class="chart-host"><div id="chart-form-economy"></div></div>
         <div class="notes">
           <h4>Trend</h4>
-          ${strideText}
           ${cadText}
-          <p>${verdict}</p>
-          <p style="font-size:0.84rem;color:var(--ink-3)">Monthly means across all runs; influenced by pace mix, so compare easy-month to easy-month. Confounded by how much fast running each month contained.</p>
+          ${gctText}
+          ${strideText}
+          ${voVrText}
+          ${cadenceTrendText ? `<p>${cadenceTrendText}</p>` : ''}
+          ${strideVerdict ? `<p>${strideVerdict}</p>` : ''}
+          ${gctNote}
+          <p style="font-size:0.84rem;color:var(--ink-3)">Monthly means across all runs; influenced by pace mix, so compare easy-month to easy-month.</p>
         </div>
       </div>
+    </section>
+  `;
+}
+
+function parkrunPanelHTML() {
+  const p = analytics.parkrun;
+  const last = p.series[p.series.length - 1];
+  const recent = p.series.slice(-8);
+  const rollingLast = p.rolling[p.rolling.length - 1];
+  const fmtD = (d) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+  const rows = recent.map((s, i) => {
+    const isPR = s.time === p.pr;
+    const idx = p.series.length - recent.length + i;
+    const roll = p.rolling[idx];
+    return `<tr><td>${fmtD(s.date)}</td><td>${s.distance_km.toFixed(1)} km</td><td>${fmtTime(s.time)}${isPR ? ' <span class="pb-star">★</span>' : ''}</td><td>${roll != null ? fmtTime(roll) : '—'}</td></tr>`;
+  }).join('');
+  return `
+    <section class="panel">
+      <header><h3>parkrun series</h3><span class="section-no">${secNo()}</span></header>
+      <p class="lede">Auto-detected from activity titles containing "parkrun". Because the course, distance and conditions repeat almost exactly week to week, this is a cleaner longitudinal fitness signal than one-off race results — a regular, low-stakes biomarker rather than just a race result.</p>
+      <div class="panel-body">
+        <div class="chart-host"><div id="chart-parkrun"></div></div>
+        <div class="notes">
+          <h4>Recent results</h4>
+          <p>${p.series.length} results recorded &middot; PR <span class="stat pb-star">${fmtTime(p.pr)} ★</span>${rollingLast != null ? ` &middot; rolling 4-result average <span class="stat">${fmtTime(rollingLast)}</span>` : ''}</p>
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Distance</th><th>Time</th><th>4-result avg</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <p style="margin-top:12px;font-size:0.84rem;color:var(--ink-3)"><span class="pb-star">★</span> = personal record. Most recent: ${fmtD(last.date)}, ${fmtTime(last.time)}.</p>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function heatmapPanelHTML() {
+  const h = analytics.heatmap;
+  const weeks = [];
+  for (let w = 0; w < 52; w++) {
+    const week = [];
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(h.start);
+      date.setDate(date.getDate() + w * 7 + d);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const cat = h.days.get(key) || 'rest';
+      week.push({ date, cat });
+    }
+    weeks.push(week);
+  }
+  const cells = weeks.map(week => week.map(c =>
+    `<div class="heatmap-cell ${c.cat}" title="${c.date.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}: ${c.cat}"></div>`
+  ).join('')).join('');
+  const months = weeks.map((week, i) => {
+    const isFirstWeekOfMonth = i === 0 || week[0].date.getMonth() !== weeks[i-1][0].date.getMonth();
+    return `<div class="heatmap-month-label">${isFirstWeekOfMonth ? week[0].date.toLocaleDateString('en-GB', { month: 'short' }) : ''}</div>`;
+  }).join('');
+  return `
+    <section class="panel">
+      <header><h3>Training consistency</h3><span class="section-no">${secNo()}</span></header>
+      <p class="lede">Every day over the last year, coloured by activity type. Consistency — not any single hard session — is what compounds into the trajectories elsewhere on this page.</p>
+      <div class="panel-body full">
+        <div>
+          <div class="heatmap-months">${months}</div>
+          <div class="heatmap-grid">${cells}</div>
+          <div class="heatmap-legend">
+            <span><i class="heatmap-cell run"></i> Running</span>
+            <span><i class="heatmap-cell strength"></i> Strength</span>
+            <span><i class="heatmap-cell rest"></i> Rest / other</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function proteinPanelHTML() {
+  const n = analytics.nutrition;
+  const a = state.athlete;
+  const masters = a.ageYears != null && a.ageYears >= 55;
+  const cols = [
+    { key: 'meat', label: 'Meat-eater' },
+    { key: 'vegetarian', label: 'Vegetarian' },
+    { key: 'vegan', label: 'Vegan' },
+  ].map(d => {
+    const plan = n.plans[d.key];
+    const rows = plan.items.map(it => `
+      <li><span>${it.count} × ${it.portion}</span><span class="stat">${it.count * it.proteinG} g</span></li>
+    `).join('');
+    return `
+      <div class="protein-col">
+        <h4>${d.label}</h4>
+        <ul class="protein-list">${rows}</ul>
+        <div class="protein-total">≈ <span class="stat">${plan.total} g</span> protein/day</div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <section class="panel">
+      <header><h3>Protein — example day by diet</h3><span class="section-no">${secNo()}</span></header>
+      <p class="lede">Based on a bodyweight of <span class="stat">${n.weightKg.toFixed(1)} kg</span>${masters ? ' and the higher masters-athlete requirement' : ''}, the recommended intake is <span class="stat">${Math.round(n.target.low)}–${Math.round(n.target.high)} g/day</span>. Each column below is one way to reach the top of that range using foods that are cheap, widely available, and easy to repeat daily — swap freely within a column to taste.</p>
+      <div class="protein-grid">${cols}</div>
+      <p class="footnote">Protein values are typical figures per serving and vary by brand and preparation. General guidance, not individualised dietetic advice — aim to spread intake across at least 3-4 meals (~30-40 g each), with one serving close to a training session.</p>
     </section>
   `;
 }

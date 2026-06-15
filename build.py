@@ -3,7 +3,7 @@
 build.py — assembles the modular source tree into a single deployable HTML file.
 
 Usage:
-    python3 build.py                  # writes longevity-lab.html
+    python3 build.py                  # writes agegrade-labs.html
     python3 build.py --out dist.html  # custom output path
 """
 
@@ -23,7 +23,9 @@ JS_FILES = [
     "parsing/garmin-zip.js",    # Garmin ZIP normaliser — needs utils
     "parsing/garmin-csv.js",    # Garmin CSV normaliser — needs utils
     "acquisition/loader.js",    # file loaders — needs zip-reader, garmin-*, utils
-    "analysis/analytics.js",    # analytics engine — needs state (main), parsing types
+    "analysis/nutrition.js",    # protein targets + food plans — needs state (main)
+    "analysis/analytics.js",    # analytics engine — needs state (main), parsing types, nutrition
+    "analysis/narrative.js",    # AI narrative (browser-direct Anthropic call) — needs analytics, state
     "analysis/recommendations.js", # recommendations — needs analytics
     "ui/templates.js",          # HTML generators — needs analytics, recommendations, utils
     "ui/charts.js",             # chart renderers — needs analytics, utils
@@ -73,8 +75,8 @@ def build(output_path: pathlib.Path) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Bundle Longevity Lab into a single HTML file.")
-    parser.add_argument("--out", default="target/longevity-lab.html", help="Output file path (default: longevity-lab.html)")
+    parser = argparse.ArgumentParser(description="Bundle AgeGrade Labs into a single HTML file.")
+    parser.add_argument("--out", default="target/index.html", help="Output file path (default: index.html)")
     args = parser.parse_args()
 
     output = pathlib.Path(args.out)

@@ -34,7 +34,8 @@ function generateRecommendations() {
     }
   }
 
-  // --- VO2 decline ---
+  // --- VO2 decline, with an aerobic-efficiency equivalent for CSV-only users
+  //     who never have a VO2max series (decline == null) ---
   if (decline != null) {
     if (decline > 0.5) {
       recs.push({ p: 80, title: 'Reverse the VO₂max slide', body: `Decline is ~${decline.toFixed(2)} ml/kg/min/yr — faster than typical for trained masters. Two VO₂max sessions per week (4×4 min at ~90% HRmax, or 6×800 m at 5K effort) across an 8–10 week block have produced 5–15% gains in this population. Keep 48–72 h between hard days.` });
@@ -43,10 +44,20 @@ function generateRecommendations() {
     } else {
       recs.push({ p: 45, title: 'Maintain — don\'t over-engineer', body: `VO₂max is essentially flat — the gold standard for masters preservation. Keep the structure that's working; the marginal return on extra intensity is now smaller than the marginal injury risk.` });
     }
+  } else if (ef && ef.reg && ef.series.length >= 4) {
+    const pctPerYear = ef.reg.slope / ef.series[0].ef * 100;
+    if (pctPerYear < -3) {
+      recs.push({ p: 80, title: 'Reverse the aerobic-efficiency slide', body: `Aerobic efficiency (speed per heartbeat on easy runs) is falling ~${Math.abs(pctPerYear).toFixed(1)}%/yr. Without a VO₂max series this is the best available proxy for cardiorespiratory trend, and the rate is faster than typical for trained masters. Two structured sessions per week (4×4 min hard-but-controlled, or 6×800 m at 5K effort) across an 8–10 week block is the standard countermeasure — keep 48–72 h between hard days.` });
+    } else if (pctPerYear < -1) {
+      recs.push({ p: 60, title: 'Defend aerobic efficiency', body: `Aerobic efficiency is drifting down ~${Math.abs(pctPerYear).toFixed(1)}%/yr — within the normal masters range, but worth defending before it compounds. Protecting one weekly higher-intensity session is what keeps this curve flat; skipping it is the most common reason efficiency accelerates downward after 60.` });
+    } else {
+      recs.push({ p: 45, title: 'Maintain — don\'t over-engineer', body: `Aerobic efficiency is essentially flat or improving — the best signal available without a VO₂max series, and a strong one. Keep the structure that's working; the marginal return on extra intensity is now smaller than the marginal injury risk.` });
+    }
   }
 
-  // --- Efficiency Factor falling (uses the new CSV-only signal) ---
-  if (ef && ef.reg && ef.series.length >= 5) {
+  // --- Efficiency Factor falling — secondary signal, only surfaced alongside
+  //     a VO2max series (CSV-only users get the EF-based equivalent above) ---
+  if (decline != null && ef && ef.reg && ef.series.length >= 5) {
     const pctPerYear = ef.reg.slope / ef.series[0].ef * 100;
     if (pctPerYear < -2) {
       recs.push({ p: 72, title: 'Investigate the efficiency dip', body: `Aerobic efficiency (speed per heartbeat on easy runs) is falling ~${Math.abs(pctPerYear).toFixed(1)}%/yr — earlier than race times would reveal. Rule out the cheap explanations first (more heat, more hills, creeping easy pace, low ferritin), then treat it as a cue to refresh the high-intensity stimulus.` });
@@ -78,12 +89,34 @@ function generateRecommendations() {
 
   // --- Strength / sarcopenia (evergreen for masters) ---
   if (a.ageYears && a.ageYears >= 55) {
-    recs.push({ p: strideFalling ? 50 : 68, title: 'Twice-weekly resistance training', body: `From 60 on, sarcopenia outpaces aerobic decline as the limiter on running longevity. Two 30-min sessions/week of compound lifts (squat, hinge, row, press) at 70–85% 1RM preserve running economy and bone density. It's the best-evidenced masters intervention that almost nobody does consistently.` });
+    const spw = analytics.strengthPerWeek;
+    let freqNote;
+    if (spw >= 2) freqNote = `You're currently averaging ${spw.toFixed(1)} sessions/week — on target.`;
+    else if (spw >= 1) freqNote = `You're currently averaging ${spw.toFixed(1)} sessions/week — below the twice-weekly target.`;
+    else if (spw > 0) freqNote = `You're currently averaging ${spw.toFixed(1)} sessions/week — well below the twice-weekly target.`;
+    else freqNote = `No strength sessions are showing up in the last 12 months — currently the single biggest gap in this programme.`;
+    recs.push({ p: strideFalling ? 50 : 68, title: 'Twice-weekly resistance training', body: `From 60 on, sarcopenia outpaces aerobic decline as the limiter on running longevity. Two 30-min sessions/week of compound lifts (squat, hinge, row, press) at 70–85% 1RM preserve running economy and bone density. ${freqNote}` });
   }
 
   // --- Protein (strong evidence post-60, rarely surfaced) ---
   if (a.ageYears && a.ageYears >= 55) {
     recs.push({ p: 52, title: 'Raise protein to muscle-sparing levels', body: `Older athletes have blunted muscle-protein synthesis ("anabolic resistance"), so the general 0.8 g/kg/day target is too low. Aim 1.6–2.2 g/kg/day spread across meals (~30–40 g per meal), with a serving inside the post-session recovery window. This is the nutritional half of defending against sarcopenia.` });
+  }
+
+  // --- parkrun trend (longitudinal biomarker) ---
+  if (analytics.parkrun.series.length >= 4) {
+    const p = analytics.parkrun;
+    const last = p.series[p.series.length - 1];
+    const rollingLast = p.rolling[p.rolling.length - 1];
+    const rollingPrev = p.rolling[p.rolling.length - 2];
+    let trendText = '';
+    if (rollingLast != null && rollingPrev != null) {
+      const dPct = (rollingLast - rollingPrev) / rollingPrev * 100;
+      if (dPct < -1) trendText = ', and the rolling average is trending faster — a good sign the underlying engine is responding to training';
+      else if (dPct > 1) trendText = ', and the rolling average has drifted slower recently — worth checking whether this tracks a deliberate base period or a genuine dip';
+      else trendText = ', and the rolling average has been stable — a useful steady-state baseline';
+    }
+    recs.push({ p: 42, title: 'Use parkrun as a fitness check', body: `${p.series.length} parkrun results give a regular, low-stakes fitness benchmark — PR ${fmtTime(p.pr)} over ${last.distance_km.toFixed(1)} km${trendText}. Because the course and conditions repeat, drift in this number is a cleaner signal than one-off race times — treat a sustained slowdown here the same way you'd treat a falling VO₂max.` });
   }
 
   // --- Heat caution (older thermoregulation) ---
