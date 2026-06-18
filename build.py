@@ -25,7 +25,6 @@ JS_FILES = [
     "acquisition/loader.js",    # file loaders — needs zip-reader, garmin-*, utils
     "analysis/nutrition.js",    # protein targets + food plans — needs state (main)
     "analysis/analytics.js",    # analytics engine — needs state (main), parsing types, nutrition
-    "analysis/narrative.js",    # AI narrative (browser-direct Anthropic call) — needs analytics, state
     "analysis/recommendations.js", # recommendations — needs analytics
     "ui/templates.js",          # HTML generators — needs analytics, recommendations, utils
     "ui/charts.js",             # chart renderers — needs analytics, utils

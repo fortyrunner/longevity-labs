@@ -16,7 +16,6 @@ const state = {
   fitnessAgeSeries: [],
   source: null, // 'csv' | 'zip'
   charts: [], // active ApexCharts instances for teardown
-  narrative: { status: 'idle', text: '', error: '' }, // idle | loading | done | error
 };
 
 // Shared cache for the last computed analytics result.
@@ -37,11 +36,6 @@ function render() {
   if (state.screen === 'landing') wireLanding();
   if (state.screen === 'dashboard') wireDashboard();
   updateFooterCounts();
-
-  if (state.screen === 'dashboard' && getApiKey() && state.narrative.status === 'idle') {
-    state.narrative.status = 'loading';
-    generateNarrative();
-  }
 }
 
 function updateFooterCounts() {
@@ -58,34 +52,11 @@ function reset() {
     screen: 'landing', loadStatus: '', loadSub: '',
     error: null, athlete: null, activities: [], vo2Series: [],
     fitnessAgeSeries: [], source: null, manualProfile: null,
-    narrative: { status: 'idle', text: '', error: '' },
   });
   render();
-}
-
-/* ---- AI Narrative actions (wired from onclick handlers in templates.js) ---- */
-function saveApiKeyAndGenerate() {
-  const input = document.getElementById('narrative-key-input');
-  const key = input ? input.value.trim() : '';
-  if (!key) return;
-  setApiKey(key);
-  generateNarrative();
-}
-
-function regenerateNarrative() {
-  generateNarrative(true);
-}
-
-function changeApiKey() {
-  clearApiKey();
-  state.narrative = { status: 'idle', text: '', error: '' };
-  patchNarrativePanel();
 }
 
 /* ---- Boot ---- */
 window.reset = reset;
 window.submitManualProfile = submitManualProfile;
-window.saveApiKeyAndGenerate = saveApiKeyAndGenerate;
-window.regenerateNarrative = regenerateNarrative;
-window.changeApiKey = changeApiKey;
 render();

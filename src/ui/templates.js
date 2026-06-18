@@ -92,7 +92,6 @@ function dashboardHTML() {
   analytics = computeAnalytics();
   _sectionCounter = 0;
   return [
-    aiNarrativePanelHTML(),
     athleteHeaderHTML(),
     kpiStripHTML(),
     state.vo2Series.length ? vo2PanelHTML() : '',
@@ -108,50 +107,6 @@ function dashboardHTML() {
     projectionPanelHTML(),
     `<div style="text-align:center;margin-top:40px"><button class="reset-btn" onclick="reset()">Load a different file</button></div>`,
   ].join('');
-}
-
-/* ---- AI Narrative ---- */
-
-function aiNarrativePanelHTML() {
-  return `
-    <div class="narrative-panel">
-      <div class="narrative-eyebrow">AI TRAJECTORY ANALYSIS</div>
-      <div class="narrative-body" id="ai-narrative-body">${aiNarrativeBodyHTML()}</div>
-    </div>
-  `;
-}
-
-function aiNarrativeBodyHTML() {
-  const key = getApiKey();
-  const n = state.narrative;
-  if (!key) {
-    return `
-      <p class="narrative-pitch">Generate a full clinical-style trajectory narrative for this athlete using Claude (model: ${NARRATIVE_MODEL}). Only a statistical summary of the analytics on this page — no raw activity data — is sent. Your API key is stored only in this browser's local storage and is used solely to call the Anthropic API directly.</p>
-      <div class="narrative-key-form">
-        <input type="password" id="narrative-key-input" placeholder="sk-ant-..." autocomplete="off" />
-        <button class="reset-btn" onclick="saveApiKeyAndGenerate()">Generate analysis</button>
-      </div>
-    `;
-  }
-  if (n.status === 'done') {
-    return `
-      <p class="narrative-text">${escapeHTML(n.text)}</p>
-      <div class="narrative-actions">
-        <button class="narrative-link" onclick="regenerateNarrative()">Regenerate</button>
-        <button class="narrative-link" onclick="changeApiKey()">Change API key</button>
-      </div>
-    `;
-  }
-  if (n.status === 'error') {
-    return `
-      <p class="narrative-text narrative-error">Couldn't generate the analysis: ${escapeHTML(n.error)}</p>
-      <div class="narrative-actions">
-        <button class="narrative-link" onclick="regenerateNarrative()">Retry</button>
-        <button class="narrative-link" onclick="changeApiKey()">Change API key</button>
-      </div>
-    `;
-  }
-  return `<div class="narrative-loading"><div class="spinner"></div><span>Generating your analysis&hellip;</span></div>`;
 }
 
 function manualProfileFormHTML() {
