@@ -1,0 +1,71 @@
+Longevity Lab v0.2 — Changes & Improvements
+=============================================
+Date: June 2026
+
+
+NEW PANELS
+----------
+
+AI Narrative
+  A full-paragraph clinical analysis generated via the Anthropic API on load.
+  Only statistical summaries (no raw activity data) are sent.
+  Appears as a dark editorial block at the top of the dashboard, before the KPIs.
+
+Aerobic Efficiency Trend (§02)
+  Pace-per-HR index plotted over time with a regression line.
+  This is the closest proxy to VO₂max available from CSV data.
+  A rising slope means the cardiovascular system is adapting;
+  a falling slope is an early warning signal.
+  Essential for CSV-only users who don't have a dedicated VO₂max series.
+
+parkrun series (§03)
+  Auto-detected from activity titles containing "parkrun".
+  Scatter chart + rolling 4-week average line.
+  PR highlighted, table of recent results included.
+  Framed as a longitudinal biomarker rather than just race results.
+
+Running form & economy (§06)
+  Cadence + ground contact time dual-axis chart over time.
+  Benchmarks applied: 170–180 spm optimal cadence, <260ms GCT target.
+  Trend direction shown for cadence over the data window.
+  Also pulls vertical oscillation and vertical ratio averages.
+
+Training consistency heatmap (§07)
+  GitHub-style calendar grid showing every day's activity type.
+  Running = oxblood red, Strength = sage green, Rest/walk = light grey.
+  Immediately reveals training consistency patterns and missed weeks.
+
+
+FIXES & IMPROVEMENTS
+---------------------
+
+Monthly volume chart replaces yearly
+  Much more useful for data windows shorter than 2 years.
+  Strength session count overlaid on same chart (scaled for visibility).
+
+Strength session frequency added as a KPI
+  Shown with red/amber/green classification:
+    >= 2/week = on target (green)
+    >= 1/week = sub-optimal (amber)
+    < 1/week  = insufficient (red)
+
+KPI strip adapts when no VO₂ data is available
+  Shows weekly running km average instead of VO₂max.
+
+Intensity zone computation improved
+  Now estimates max HR from observed activity data when no DOB is supplied,
+  rather than silently skipping the zones panel.
+
+All-time best efforts marked with ★ in the performance table
+  Distinguishes personal bests from year bests at a glance.
+
+Footer updated to v0.2
+
+
+RECOMMENDATIONS ENGINE UPDATES
+--------------------------------
+
+Now incorporates aerobic efficiency trend alongside VO₂ decline rate.
+Strength frequency explicitly flagged when below 2×/week.
+parkrun series referenced in recommendations when enough data is present.
+Intensity split recommendation uses actual zone percentages in copy.
