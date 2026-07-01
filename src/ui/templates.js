@@ -105,6 +105,7 @@ function dashboardHTML() {
     heatmapPanelHTML(),
     analytics.nutrition ? proteinPanelHTML() : '',
     projectionPanelHTML(),
+    workoutMenuPanelHTML(),
     `<div style="text-align:center;margin-top:40px"><button class="reset-btn" onclick="reset()">Load a different file</button></div>`,
   ].join('');
 }
@@ -792,4 +793,140 @@ function fmtTime(seconds) {
 
 function wireDashboard() {
   // No interactive wiring required at the moment
+}
+
+/* ---- Session menu ---- */
+function workoutMenuPanelHTML() {
+  const a = state.athlete;
+  const age = a && a.ageYears ? a.ageYears : 0;
+  const lr = analytics.loadRatio;
+  const highLoad = lr && lr.ratio > 1.3;
+  const spw = analytics.strengthPerWeek;
+  const ef = analytics.efMonthly;
+  const data = analytics.recentZoneSeconds;
+
+  let efTrendPctPerYear = 0;
+  if (ef && ef.reg && ef.series.length >= 4 && ef.series[0].ef) {
+    efTrendPctPerYear = ef.reg.slope / ef.series[0].ef * 100;
+  }
+
+  let strideFalling = false, strideDeltaPct = 0;
+  const withStride = analytics.gaitMonthly.filter(m => m.stride != null);
+  if (withStride.length >= 4) {
+    strideDeltaPct = (withStride[withStride.length - 1].stride - withStride[0].stride) / withStride[0].stride * 100;
+    if (strideDeltaPct < -4) strideFalling = true;
+  }
+
+  const vo2Declining = analytics.vo2DeclinePerYear != null && analytics.vo2DeclinePerYear > 0.3;
+  const efDeclining = efTrendPctPerYear < -2;
+
+  // ── Running: always exactly 3 ───────────────────────────────────────────────
+
+  const easyWhy = highLoad
+    ? `Load-spike index is ${lr.ratio.toFixed(2)} — recovery runs protect adaptation and prevent the breakdown that ends masters seasons.`
+    : `Easy volume is the single largest predictor of preserved VO₂max into the seventies. The session to never skip.`;
+  const easyRun = {
+    type: 'run', title: 'Easy aerobic run', duration: '40 min', why: easyWhy,
+    steps: [
+      '5 min walk/jog warm-up',
+      '30 min at fully conversational pace (Z1–Z2, ~70–75% HRmax)',
+      '5 min walk cool-down',
+    ],
+  };
+
+  const vo2Why = vo2Declining
+    ? `VO₂max is declining at ${analytics.vo2DeclinePerYear.toFixed(1)} ml/kg/min/yr — 4×4 min at ~90% HRmax is the most evidence-backed countermeasure in masters runners.`
+    : efDeclining
+      ? `Aerobic efficiency is drifting ${Math.abs(efTrendPctPerYear).toFixed(1)}%/yr — 4×4 sessions are the most direct lever before this compounds into pace loss that easy mileage cannot fix.`
+      : `The evidence for preserving VO₂max after 60 points consistently here: two sessions per week across an 8–10 week block produces 5–15% gains in trained masters runners.`;
+  const vo2Session = {
+    type: 'run', title: 'VO₂max intervals', duration: '45 min', why: vo2Why,
+    steps: [
+      '10 min easy jog warm-up',
+      '4 × 4 min at ~90% HRmax — hard but controlled, not flat-out',
+      '3 min easy jog recovery between each effort',
+      '7 min easy cool-down',
+    ],
+  };
+
+  const anWhy = strideFalling
+    ? `Stride length has shortened ${Math.abs(strideDeltaPct).toFixed(0)}% — maximal-speed reps rebuild the fast-twitch recruitment and stretch-reflex that easy running cannot access.`
+    : `Short maximal efforts preserve the fast-twitch fibres that atrophy fastest with age and that no amount of easy or threshold running can substitute for.`;
+  const anaerobicSession = {
+    type: 'run', title: 'Anaerobic speed reps', duration: '35 min', why: anWhy,
+    steps: [
+      '10 min easy jog + 4 × 20 sec strides warm-up',
+      '8 × 30 sec at near-maximal effort (~95–100% HRmax)',
+      '90 sec walk/jog recovery between each rep',
+      '5 min easy cool-down',
+    ],
+  };
+
+  // ── Strength: always exactly 2 ──────────────────────────────────────────────
+
+  const strengthWhy = spw < 0.5
+    ? `No strength sessions in the last 12 months — the single biggest gap in this programme. Muscle loss compounds faster than aerobic decline after 60.`
+    : spw < 2
+      ? `Averaging ${spw.toFixed(1)} sessions/week — a second weekly session adds the protective stimulus consistently tied to running longevity and bone density.`
+      : `On target at ${spw.toFixed(1)} sessions/week. Maintain the compound stimulus for muscle mass, bone density, and running economy.`;
+  const compoundStrength = {
+    type: 'lift', title: 'Compound strength', duration: '50 min', why: strengthWhy,
+    steps: [
+      '5 min mobility warm-up',
+      'Goblet squat  3 × 8 @ 70–80% effort',
+      'Romanian deadlift  3 × 8',
+      'Single-arm dumbbell row  3 × 10 / side',
+      'Push-up or dumbbell press  3 × 10',
+      'Calf raise  3 × 15 (3 sec eccentric)',
+      '5 min stretching',
+    ],
+  };
+
+  const secondStrength = strideFalling ? {
+    type: 'lift', title: 'Power & plyometrics', duration: '35 min',
+    why: `Stride length has shortened — explosive work rebuilds the fast-twitch and stretch-reflex contribution that compound lifting alone cannot restore.`,
+    steps: [
+      '5 min jog warm-up',
+      'Broad jump or box jump  3 × 5 (full recovery between sets)',
+      'Jump squat  3 × 6 @ bodyweight',
+      'Pogos (two-footed quick hops)  3 × 15 sec',
+      '6 × 10 sec hill sprints (walk back recovery)',
+      '5 min easy cool-down',
+    ],
+  } : {
+    type: 'lift', title: 'Running-specific strength', duration: '30 min',
+    why: `Single-leg and hip-stability work addresses functional gaps that compound training alone misses — and that masters runners most often present with when injury risk rises.`,
+    steps: [
+      'Single-leg Romanian deadlift  3 × 8 / side',
+      'Hip thrust  3 × 12',
+      'Clamshell with resistance band  3 × 15 / side',
+      'Copenhagen adductor plank  3 × 20 sec / side',
+      'Single-leg calf raise  3 × 15 / side (slow eccentric)',
+    ],
+  };
+
+  const sessions = [easyRun, vo2Session, anaerobicSession, compoundStrength, secondStrength];
+
+  const cards = sessions.map(s => {
+    const steps = s.steps.map(st => `<li>${escapeHTML(st)}</li>`).join('');
+    const typeLabel = s.type === 'run' ? 'Running' : 'Strength';
+    return `
+      <div class="workout-card workout-card--${s.type}">
+        <span class="workout-badge workout-badge--${s.type}">${typeLabel}</span>
+        <div class="workout-title">${escapeHTML(s.title)}</div>
+        <div class="workout-duration">${escapeHTML(s.duration)}</div>
+        <p class="workout-why">${s.why}</p>
+        <ol class="workout-steps">${steps}</ol>
+      </div>`;
+  }).join('');
+
+  return `
+    <section class="panel">
+      <header>
+        <h3>Session menu</h3>
+        <span class="section-no">${secNo()}</span>
+      </header>
+      <p class="lede">Three running and two strength sessions — 30–60 minutes each — chosen for this athlete's current data and structured around the adaptations longevity research most consistently prioritises at this age.</p>
+      <div class="workout-grid">${cards}</div>
+    </section>`;
 }
